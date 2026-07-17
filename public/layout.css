@@ -1,0 +1,7 @@
+html,body{height:100%;overflow:hidden}
+aside,main,.chat,nav,.timeline{min-height:0}
+aside,main{height:100vh;overflow:hidden}
+nav,.timeline{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+nav{scrollbar-gutter:stable}
+.timeline{scrollbar-gutter:stable both-edges}
+.chat{width:100%;max-width:none;flex:1;padding:0 28px}
