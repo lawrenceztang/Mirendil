@@ -51,7 +51,6 @@ export async function prepareAgentBranch(session:Session,workspace:string):Promi
   try{await git(['switch',branch]);}catch{await git(['switch','-c',branch]);}return branch;}
 
 export async function makeAgentWritable(workspace:string):Promise<void>{
-  const rootStat=await fs.stat(workspace);if((rootStat.mode&0o002)!==0)return;
   async function visit(current:string):Promise<void>{
     const stat=await fs.lstat(current);if(stat.isSymbolicLink())return;
     if(stat.isDirectory())for(const entry of await fs.readdir(current))await visit(path.join(current,entry));
