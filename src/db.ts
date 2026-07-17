@@ -37,13 +37,13 @@ export const db = {
   async replaceMergedPullRequest(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=null,pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
   async requestCancel(runId: string): Promise<void> { await pool.query(`UPDATE runs SET cancel_requested=true WHERE id=$1 AND status IN ('queued','running')`, [runId]); },
   async leaseRun(workerId: string): Promise<Run | null> {
-    const result = await pool.query(`WITH next AS (SELECT candidate.id FROM runs candidate WHERE (candidate.status='queued' AND NOT EXISTS (SELECT 1 FROM runs active WHERE active.session_id=candidate.session_id AND active.status='running' AND active.lease_expires_at>=now())) OR (candidate.status='running' AND candidate.lease_expires_at<now()) ORDER BY candidate.created_at FOR UPDATE SKIP LOCKED LIMIT 1)
+    const result = await pool.query(`WITH next AS (SELECT candidate.id FROM runs candidate WHERE (candidate.status='queued' AND NOT EXISTS (SELECT 1 FROM runs earlier WHERE earlier.session_id=candidate.session_id AND ((earlier.status='queued' AND (earlier.created_at,earlier.id)<(candidate.created_at,candidate.id)) OR earlier.status='running'))) OR (candidate.status='running' AND candidate.lease_expires_at<now()) ORDER BY candidate.created_at,candidate.id FOR UPDATE SKIP LOCKED LIMIT 1)
       UPDATE runs r SET status='running',worker_id=$1,lease_expires_at=now()+interval '30 seconds',started_at=COALESCE(r.started_at,now()) FROM next WHERE r.id=next.id RETURNING ${leasedRunColumns}`, [workerId]);
     if (result.rows[0]) await pool.query(`UPDATE sessions SET status='running',updated_at=now() WHERE id=$1`, [result.rows[0].sessionId]);
     return result.rows[0] || null;
   },
   async heartbeat(runId: string, workerId: string): Promise<boolean> { const r=await pool.query(`UPDATE runs SET lease_expires_at=now()+interval '30 seconds' WHERE id=$1 AND worker_id=$2 AND status='running'`,[runId,workerId]); return r.rowCount===1; },
   async finish(runId: string, status: 'completed'|'failed'|'cancelled', summary?: string, error?: string): Promise<void> {
-    await pool.query(`WITH done AS (UPDATE runs SET status=$2::text::run_status,summary=$3,error=$4,finished_at=now(),lease_expires_at=null WHERE id=$1 RETURNING session_id) UPDATE sessions SET status=$2::text::session_status,updated_at=now() FROM done WHERE sessions.id=done.session_id`, [runId,status,summary||null,error||null]);
+    await pool.query(`WITH done AS (UPDATE runs SET status=$2::text::run_status,summary=$3,error=$4,finished_at=now(),lease_expires_at=null WHERE id=$1 RETURNING session_id) UPDATE sessions SET status=CASE WHEN EXISTS (SELECT 1 FROM runs queued WHERE queued.session_id=done.session_id AND queued.status='queued') THEN 'queued'::session_status ELSE $2::text::session_status END,updated_at=now() FROM done WHERE sessions.id=done.session_id`, [runId,status,summary||null,error||null]);
   }
 };
