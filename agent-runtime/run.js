@@ -62,18 +62,21 @@ if(!process.env.OPENAI_API_KEY){
   process.exit(0);
 }
 
-const finalMessage='/tmp/codex-last-message.txt';
-const codexHome='/home/agent/.codex';
+const finalMessage=path.join('/tmp',`codex-last-message-${process.env.RUN_ID||process.pid}.txt`);
+const codexHome=path.join('/tmp',`relay-codex-${process.env.RUN_ID||process.pid}`);
 await fs.mkdir(codexHome,{recursive:true,mode:0o700});
 const {stdout:codexVersion}=await execFileAsync('codex',['--version']);
 console.log(`RELAY_CODEX: ${codexVersion.trim()}`);
 const codexEnv={...process.env,CODEX_HOME:codexHome};
 if(process.env.GITHUB_TOKEN){
   const auth=Buffer.from(`x-access-token:${process.env.GITHUB_TOKEN}`).toString('base64');
-  await execFileAsync('git',['config','--global','http.https://github.com/.extraHeader',`Authorization: Basic ${auth}`],{env:codexEnv});
-  await execFileAsync('git',['config','--global','user.name','Relay Agent'],{env:codexEnv});
-  await execFileAsync('git',['config','--global','user.email','relay-agent@users.noreply.github.com'],{env:codexEnv});
-  await execFileAsync('git',['config','--global','push.autoSetupRemote','true'],{env:codexEnv});
+  Object.assign(codexEnv,{
+    GIT_CONFIG_COUNT:'4',
+    GIT_CONFIG_KEY_0:'http.https://github.com/.extraHeader',GIT_CONFIG_VALUE_0:`Authorization: Basic ${auth}`,
+    GIT_CONFIG_KEY_1:'user.name',GIT_CONFIG_VALUE_1:'Relay Agent',
+    GIT_CONFIG_KEY_2:'user.email',GIT_CONFIG_VALUE_2:'relay-agent@users.noreply.github.com',
+    GIT_CONFIG_KEY_3:'push.autoSetupRemote',GIT_CONFIG_VALUE_3:'true'
+  });
 }
 await new Promise((resolve,reject)=>{
   const login=spawn('codex',['login','--with-api-key'],{stdio:['pipe','inherit','inherit'],env:codexEnv});
@@ -93,5 +96,6 @@ const exitCode=await new Promise((resolve,reject)=>{
 if(exitCode!==0)throw new Error(`Codex exited with status ${exitCode}`);
 let summary='Codex completed the repository task.';
 try{summary=(await fs.readFile(finalMessage,'utf8')).trim()||summary;}catch{}
+await fs.rm(codexHome,{recursive:true,force:true});
 await exportOutput();
 console.log(`RELAY_RESULT: ${summary.replaceAll('\n',' ').slice(0,4000)}`);
