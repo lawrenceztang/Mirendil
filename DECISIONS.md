@@ -18,7 +18,7 @@ PostgreSQL owns both product state and queue state. A worker atomically leases t
 
 The current runtime restarts reclaimed work from the durable workspace rather than resuming a process instruction-by-instruction. Exact process continuation is fragile; restarting from a known workspace is simpler to reason about. In production, each tool call would have an idempotency key and checkpoint so the lead agent can reconstruct context safely.
 
-Workspaces live outside containers on persistent storage so Codex edits survive run-container exit. Relay detects changed filenames, commits the workspace directly, and opens a pull request without generating a parallel patch artifact.
+Workspaces live outside containers on persistent storage so Codex edits survive run-container exit. Codex commits and publishes changes from that workspace, while Relay records the resulting pull-request URL for the chat.
 
 ## Isolation and secrets
 
@@ -36,7 +36,7 @@ Each queue worker owns one run at a time and launches one Codex agent container.
 
 The API and worker are separate entry points but share strict TypeScript domain/database modules. Fastify offers a small, typed HTTP surface. Zod validates data at trust boundaries. SQL is explicit because the lease query is central behavior worth seeing and reviewing. The frontend is dependency-free JavaScript/CSS to keep the submission focused on the cloud-agent system.
 
-The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, verification, commits, and pushes. Codex bypasses inner approval prompts because the disposable container and chat-scoped repository mount are the outer security boundary. Relay performs a fallback commit/push and PR update if Codex leaves changes unpublished. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
+The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, verification, commits, pushes, and pull-request delivery. Codex bypasses inner approval prompts because the disposable container and chat-scoped repository mount are the outer security boundary. The host observes and records the pull request but does not publish repository changes itself. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
 
 ## Hosting
 
