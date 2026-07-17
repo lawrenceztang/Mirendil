@@ -21,9 +21,8 @@ async function files(dir=root,depth=0){
 
 if(!process.env.OPENAI_API_KEY){
   const repoFiles=await files();
-  const report=`# Relay demo run\n\n## Request\n\n${task}\n\n## Repository snapshot\n\n${repoFiles.slice(0,30).map(x=>`- ${x}`).join('\n')||'- Empty workspace'}\n\n## Next step\n\nAdd an OPENAI_API_KEY to enable the Codex coding agent.\n`;
-  await fs.writeFile(path.join(root,'RELAY_DEMO_RESULT.md'),report);
-  console.log('RELAY_RESULT: Demo completed in an isolated container and produced RELAY_DEMO_RESULT.md.');
+  const snapshot=repoFiles.slice(0,30).join(', ')||'empty workspace';
+  console.log(`RELAY_RESULT: Demo inspected the repository without changing it (${snapshot}). Add an OpenAI API key to enable answers and coding tasks.`);
   process.exit(0);
 }
 
@@ -39,7 +38,7 @@ await new Promise((resolve,reject)=>{
   login.stdin.end(`${process.env.OPENAI_API_KEY}\n`);
 });
 delete codexEnv.OPENAI_API_KEY;
-const prompt=`Work on this repository as an autonomous coding agent.\n\nUser request: ${task}\n\nInspect the existing code, make the smallest complete change, and run relevant tests or checks. Do not only explain what to do: implement it. Do not commit, push, or modify .git; Relay handles delivery. Finish with a concise summary and verification results.`;
+const prompt=`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\nDetermine whether the user is asking a question or requesting a repository change. If it is a question, inspect the repository as needed and answer it without changing files or creating a pull request. If a change is requested, make the smallest complete change and run relevant tests or checks. Do not commit, push, or modify .git; Relay handles delivery. Finish with a concise answer or, for changes, a summary and verification results.`;
 const args=['exec','--dangerously-bypass-approvals-and-sandbox','--ephemeral','--ignore-user-config','--skip-git-repo-check','--color','never','--output-last-message',finalMessage,'--cd',root];
 if(process.env.CODEX_MODEL)args.push('--model',process.env.CODEX_MODEL);
 args.push(prompt);

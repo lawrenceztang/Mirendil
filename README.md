@@ -1,6 +1,6 @@
 # Relay
 
-Relay is a small cloud coding agent: create a durable chat from a Git repository, queue a task, close the tab, and return later to its event history, summary, and pull request. Every run executes in its own resource-limited Docker container.
+Relay is a small cloud coding agent: create a durable chat from a Git repository, ask a question or queue a coding task, close the tab, and return later to its event history, answer, or pull request. Every run executes in its own resource-limited Docker container. Question-only runs leave the repository unchanged and do not create a pull request.
 
 ## Quick start
 
