@@ -45,3 +45,9 @@ Brief, chronological, append-only. Records only important user-driven product an
 20. **User required Codex to modify Git workspaces on Linux.** Made the trusted worker grant each bind-mounted workspace to the non-root Codex UID before execution.
 
 21. **User chose copy-in/copy-out agent isolation.** Codex now edits a private container copy; Relay validates and imports working-tree output while keeping host Git metadata inaccessible.
+
+22. **User prioritized faster agent startup.** Idle workers now claim jobs within roughly 100 ms and private workspace creation skips unnecessary Git metadata.
+
+23. **User chose direct scoped workspace editing.** Each Codex container now edits only its chat workspace directly while Git metadata remains read-only and Relay alone commits or pushes.
+
+24. **User allowed agent-controlled Git delivery.** Codex may now commit and push the chat branch by default, while its final text remains a separate response to the user's request.

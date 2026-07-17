@@ -8,11 +8,31 @@ const task=process.env.TASK||'Inspect the repository';
 const root=process.env.WORKSPACE_ROOT||'/workspace';
 const input=process.env.REPO_INPUT||'/repo-input';
 const output=process.env.REPO_OUTPUT||'/repo-output';
+const direct=process.env.DIRECT_WORKSPACE==='1';
 const execFileAsync=promisify(execFile);
 
-// The host repository is mounted read-only. Codex works only on this private
-// container copy, so its Git metadata and hooks disappear with the container.
-await fs.cp(input,root,{recursive:true,force:true,verbatimSymlinks:true});
+// Copy mode remains available for runtime tests. Production directly mounts a
+// chat-scoped working tree, including Git metadata for agent-controlled pushes.
+if(!direct){const inputRoot=path.resolve(input);
+  await fs.cp(input,root,{recursive:true,force:true,verbatimSymlinks:true,filter:source=>{
+    const relative=path.relative(inputRoot,path.resolve(source));
+    return relative!=='.git'&&!relative.startsWith(`.git${path.sep}`)&&relative!=='.relay-diff.patch';
+  }});
+}
+
+// Copy mode preserves source modes, so normalize only that private copy.
+async function makeOwnerWritable(current){
+  const stat=await fs.lstat(current);
+  if(stat.isSymbolicLink())return;
+  await fs.chmod(current,stat.mode|(stat.isDirectory()?0o700:0o600));
+  if(stat.isDirectory())for(const entry of await fs.readdir(current))await makeOwnerWritable(path.join(current,entry));
+}
+if(!direct)await makeOwnerWritable(root);
+const writeProbe=path.join(root,'.relay-write-probe');
+await fs.writeFile(writeProbe,'ok');
+await fs.rm(writeProbe);
+const rootStat=await fs.stat(root);
+console.log(`RELAY_WORKSPACE: uid=${process.getuid?.()??'unknown'} owner=${rootStat.uid} mode=${(rootStat.mode&0o777).toString(8)} writable`);
 
 async function files(dir=root,depth=0){
   if(depth>3)return[];const result=[];
@@ -26,6 +46,7 @@ async function files(dir=root,depth=0){
 }
 
 async function exportOutput(){
+  if(direct)return;
   for(const entry of await fs.readdir(output))await fs.rm(path.join(output,entry),{recursive:true,force:true});
   for(const entry of await fs.readdir(root)){
     if(entry==='.git'||entry==='.relay-diff.patch')continue;
@@ -47,13 +68,20 @@ await fs.mkdir(codexHome,{recursive:true,mode:0o700});
 const {stdout:codexVersion}=await execFileAsync('codex',['--version']);
 console.log(`RELAY_CODEX: ${codexVersion.trim()}`);
 const codexEnv={...process.env,CODEX_HOME:codexHome};
+if(process.env.GITHUB_TOKEN){
+  const auth=Buffer.from(`x-access-token:${process.env.GITHUB_TOKEN}`).toString('base64');
+  await execFileAsync('git',['config','--global','http.https://github.com/.extraHeader',`Authorization: Basic ${auth}`],{env:codexEnv});
+  await execFileAsync('git',['config','--global','user.name','Relay Agent'],{env:codexEnv});
+  await execFileAsync('git',['config','--global','user.email','relay-agent@users.noreply.github.com'],{env:codexEnv});
+  await execFileAsync('git',['config','--global','push.autoSetupRemote','true'],{env:codexEnv});
+}
 await new Promise((resolve,reject)=>{
   const login=spawn('codex',['login','--with-api-key'],{stdio:['pipe','inherit','inherit'],env:codexEnv});
   login.on('error',reject);login.on('close',code=>code===0?resolve():reject(new Error(`Codex API-key login exited with status ${code}`)));
   login.stdin.end(`${process.env.OPENAI_API_KEY}\n`);
 });
 delete codexEnv.OPENAI_API_KEY;
-const prompt=`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\nDetermine whether the user is asking a question or requesting a repository change. If it is a question, inspect the repository as needed and answer it without changing files or creating a pull request. If a change is requested, make the smallest complete change and run relevant tests or checks. Do not commit, push, or modify .git; Relay handles delivery. Finish with a concise answer or, for changes, a summary and verification results.`;
+const prompt=`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\nDetermine whether the user is asking a question or requesting a repository change. If it is a question, inspect the repository as needed and answer it without changing files. If a change is requested, make the smallest complete change, run relevant tests or checks, then commit and push the current Relay chat branch. You may use Git freely and should push each coherent completed change by default. Finish with a concise text response addressed directly to the user; this response is separate from Git commits, pushes, and pull-request delivery.`;
 const args=['exec','--dangerously-bypass-approvals-and-sandbox','--ephemeral','--ignore-user-config','--skip-git-repo-check','--color','never','--output-last-message',finalMessage,'--cd',root];
 if(process.env.CODEX_MODEL)args.push('--model',process.env.CODEX_MODEL);
 args.push(prompt);

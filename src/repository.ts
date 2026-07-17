@@ -45,19 +45,19 @@ export async function ensureWorkspace(session: Session, githubToken?: string | n
 
 export async function changedFiles(workspace:string):Promise<string[]>{const output=await command('git',['-c',`safe.directory=${workspace}`,'status','--porcelain','--untracked-files=all'],workspace);return output.split('\n').filter(Boolean).map(line=>line.slice(3)).filter(file=>file!=='.relay-diff.patch');}
 
-export async function prepareAgentOutput(runId:string):Promise<string>{const output=path.join(config.workspaceRoot,'.relay-outputs',runId);await fs.rm(output,{recursive:true,force:true});await fs.mkdir(output,{recursive:true});
-  // Bind mounts retain host ownership. A per-run staging directory must be
-  // writable by the unprivileged agent on both Linux and Docker Desktop,
-  // where changing host ownership from a container may be rejected.
-  await fs.chmod(output,0o777);return output;}
+export async function headRevision(workspace:string):Promise<string>{return command('git',['-c',`safe.directory=${workspace}`,'rev-parse','HEAD'],workspace);}
 
-export async function applyAgentOutput(workspace:string,output:string):Promise<void>{
-  let files=0,bytes=0;const root=path.resolve(output);
-  async function validate(current:string):Promise<void>{for(const entry of await fs.readdir(current,{withFileTypes:true})){if(entry.name==='.git')throw new Error('Agent output contained forbidden .git metadata');const item=path.join(current,entry.name);const stat=await fs.lstat(item);if(stat.isSymbolicLink()){const target=await fs.readlink(item);const resolved=path.resolve(path.dirname(item),target);if(resolved!==root&&!resolved.startsWith(`${root}${path.sep}`))throw new Error(`Agent output contained unsafe symlink: ${path.relative(root,item)}`);}else if(stat.isDirectory())await validate(item);else if(stat.isFile()){files++;bytes+=stat.size;if(files>10_000||bytes>200_000_000)throw new Error('Agent output exceeded import limits');}else throw new Error('Agent output contained an unsupported file type');}}
-  await validate(root);
-  for(const entry of await fs.readdir(workspace)){if(entry!=='.git')await fs.rm(path.join(workspace,entry),{recursive:true,force:true});}
-  for(const entry of await fs.readdir(root)){await fs.cp(path.join(root,entry),path.join(workspace,entry),{recursive:true,force:true,verbatimSymlinks:true});}
-  await fs.rm(output,{recursive:true,force:true});
+export async function prepareAgentBranch(session:Session,workspace:string):Promise<string>{const branch=session.prBranch||`relay/chat-${session.id.slice(0,8)}`;const git=(args:string[])=>command('git',['-c',`safe.directory=${workspace}`,...args],workspace);
+  try{await git(['switch',branch]);}catch{await git(['switch','-c',branch]);}return branch;}
+
+export async function makeAgentWritable(workspace:string):Promise<void>{
+  const rootStat=await fs.stat(workspace);if((rootStat.mode&0o002)!==0)return;
+  async function visit(current:string):Promise<void>{
+    const stat=await fs.lstat(current);if(stat.isSymbolicLink())return;
+    if(stat.isDirectory())for(const entry of await fs.readdir(current))await visit(path.join(current,entry));
+    await fs.chmod(current,stat.mode|(stat.isDirectory()?0o777:0o666));
+  }
+  await visit(workspace);
 }
 
 export async function publishPullRequest(session: Session, runId: string, prompt: string, summary: string, workspace: string, githubToken: string): Promise<{url:string;branch:string;created:boolean} | null> {
@@ -71,8 +71,8 @@ export async function publishPullRequest(session: Session, runId: string, prompt
   await git(['config','user.name','Relay Agent']); await git(['config','user.email','relay-agent@users.noreply.github.com']);
   if(session.prBranch)await git(['switch',branch]);else await git(['switch','-c',branch]);
   await git(['add','-A','--', '.',':!.relay-diff.patch']);
-  const staged=await git(['status','--porcelain']); if(!staged)return null;
-  await git(['commit','-m',`Relay: ${prompt.replaceAll('\n',' ').slice(0,72)}`]);
+  const staged=await git(['status','--porcelain']);
+  if(staged)await git(['commit','-m',`Relay: ${prompt.replaceAll('\n',' ').slice(0,72)}`]);
   const auth=Buffer.from(`x-access-token:${githubToken}`).toString('base64');
   await git(['-c',`http.${url.origin}/.extraHeader=Authorization: Basic ${auth}`,'push','--set-upstream','origin',branch]);
   if(session.prUrl)return {url:session.prUrl,branch,created:false};

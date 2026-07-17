@@ -12,7 +12,9 @@ while(!stopping) {
   let run;
   try { run=await db.leaseRun(workerId); }
   catch(error) { console.error('Queue poll failed; retrying',error instanceof Error?error.message:error); await new Promise(r=>setTimeout(r,3000)); continue; }
-  if(!run) { await new Promise(r=>setTimeout(r,1000)); continue; }
+  // Keep perceived queue latency low while retaining the database-backed
+  // queue's simple multi-worker coordination.
+  if(!run) { await new Promise(r=>setTimeout(r,100)); continue; }
   const session=await db.session(run.sessionId); if(!session){await db.finish(run.id,'failed',undefined,'Session missing');continue;}
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),config.runTimeoutMs);

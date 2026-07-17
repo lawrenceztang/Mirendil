@@ -22,7 +22,7 @@ Workspaces live outside containers on persistent storage so Codex edits survive 
 
 ## Isolation and secrets
 
-Each run gets a fresh non-root Docker container with dropped Linux capabilities, `no-new-privileges`, and PID/CPU/memory limits. The trusted repository is mounted read-only and copied into the container's private filesystem. After success, Relay validates file count, total size, types, symlinks, and exclusion of `.git` before importing the output. Demo runs have no network; model-enabled runs currently use bridge networking.
+Each run gets a fresh non-root Docker container with dropped Linux capabilities, `no-new-privileges`, and PID/CPU/memory limits. Only that chat's repository is mounted read-write. Codex receives that user's GitHub credential so it can commit and push the persistent chat branch itself; this intentionally means repository code executed during the run could access the delegated token. Failed runs may leave partial edits, an explicit prototype tradeoff for simpler and faster execution. Demo runs have no network; model-enabled runs currently use bridge networking.
 
 GitHub OAuth provides both Relay identity and repository authorization with signed, expiring state. Login tokens are hashed; delegated GitHub tokens are encrypted per user and omitted from logs/model context. Every chat, run, event stream, cancellation, and artifact lookup is ownership-filtered. Git credentials are applied through process-scoped authorization headers rather than repository configuration. A production GitHub App would further improve repository selection and token lifetime.
 
@@ -36,7 +36,7 @@ Each queue worker owns one run at a time and launches one Codex agent container.
 
 The API and worker are separate entry points but share strict TypeScript domain/database modules. Fastify offers a small, typed HTTP surface. Zod validates data at trust boundaries. SQL is explicit because the lease query is central behavior worth seeing and reviewing. The frontend is dependency-free JavaScript/CSS to keep the submission focused on the cloud-agent system.
 
-The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, and verification commands. Codex bypasses inner approval prompts because the disposable container is the outer security boundary. Copy-in/copy-out keeps trusted host Git metadata outside Codex's writable filesystem. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
+The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, verification, commits, and pushes. Codex bypasses inner approval prompts because the disposable container and chat-scoped repository mount are the outer security boundary. Relay performs a fallback commit/push and PR update if Codex leaves changes unpublished. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
 
 ## Hosting
 
