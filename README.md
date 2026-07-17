@@ -75,3 +75,5 @@ npm run build
 - The Docker socket grants the worker powerful host access. Production should use Kubernetes Jobs, ECS tasks, or a dedicated sandbox service instead.
 
 See [DECISIONS.md](DECISIONS.md) for UX and architecture motivations and the production path.
+
+See [CLOUD_SETUP.md](CLOUD_SETUP.md) for the complete AWS EC2 deployment guide.

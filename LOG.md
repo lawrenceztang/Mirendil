@@ -39,3 +39,5 @@ Brief, chronological, append-only. Records only important user-driven product an
 17. **User chose direct pull-request delivery.** Removed generated diff/patch artifacts; Relay now commits Codex's workspace changes and opens the PR directly.
 
 18. **User required conversational PR continuity.** Made each chat own one PR branch so later prompts commit to and update the existing pull request.
+
+19. **User hosted Relay on AWS EC2.** Deployed the Docker-based web, worker, and per-run Codex container architecture on a cloud VM with Supabase persistence.
