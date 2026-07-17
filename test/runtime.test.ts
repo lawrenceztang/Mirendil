@@ -14,3 +14,10 @@ test('demo runtime leaves the repository unchanged without a model key',async()=
   assert.ok(((await fs.stat(path.join(workspace,'hello.txt'))).mode&0o200)!==0);
   await assert.rejects(fs.access(path.join(workspace,'.git')));
 });
+
+test('runtime falls back to a directly mounted workspace when repo input is absent',async()=>{
+  const workspace=await fs.mkdtemp(path.join(os.tmpdir(),'relay-direct-'));await fs.writeFile(path.join(workspace,'hello.txt'),'hello');
+  const logs=await new Promise<string>((resolve,reject)=>{const child=spawn(process.execPath,[path.resolve('agent-runtime/run.js')],{env:{...process.env,TASK:'Inspect this',OPENAI_API_KEY:'',WORKSPACE_ROOT:workspace,REPO_INPUT:path.join(workspace,'missing')},cwd:workspace});let text='';child.stdout.on('data',d=>text+=d);child.on('error',reject);child.on('close',code=>code===0?resolve(text):reject(new Error(`exit ${code}`)));});
+  assert.match(logs,/RELAY_WORKSPACE: .* writable/);
+  assert.equal(await fs.readFile(path.join(workspace,'hello.txt'),'utf8'),'hello');
+});

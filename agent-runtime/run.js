@@ -9,8 +9,13 @@ const task=process.env.TASK||'Inspect the repository';
 const root=process.env.WORKSPACE_ROOT||'/workspace';
 const input=process.env.REPO_INPUT||'/repo-input';
 const output=process.env.REPO_OUTPUT||'/repo-output';
-const direct=process.env.DIRECT_WORKSPACE==='1';
+let direct=process.env.DIRECT_WORKSPACE==='1';
 const execFileAsync=promisify(execFile);
+
+// Docker exec environments can outlive worker/container revisions. If the
+// legacy copy source is absent, the mounted /workspace is unambiguously the
+// production direct-workspace mode.
+if(!direct){try{await fs.access(input);}catch{direct=true;}}
 
 // Copy mode remains available for runtime tests. Production directly mounts a
 // chat-scoped working tree, including Git metadata for agent-controlled pushes.
