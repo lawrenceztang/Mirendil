@@ -1,6 +1,6 @@
 # Relay
 
-Relay is a small cloud coding agent: create a durable chat from a Git repository, ask a question or queue a coding task, close the tab, and return later to its event history, answer, or pull request. Every run executes in its own resource-limited Docker container. Question-only runs leave the repository unchanged and do not create a pull request.
+Relay is a small cloud coding agent: create a durable chat from a Git repository, ask a question or queue a coding task, close the tab, and return later to its event history, answer, or pull request. Each chat keeps a resource-limited Docker container for subsequent runs; Relay replaces it when the workspace needs a fresh container. Question-only runs leave the repository unchanged and do not create a pull request.
 
 ## Quick start
 
@@ -49,7 +49,7 @@ npm run build
 
 - Supabase Postgres stores sessions, runs, durable events, queue leases, encrypted connection records, and artifact metadata.
 - Local Alpine containers encrypt the pooler connection with TLS but disable certificate-chain verification because the pooler chain is not accepted by the image trust store. Production should supply and pin Supabase's database CA.
-- Docker hosts disposable agent runtimes. The worker needs `/var/run/docker.sock` in this prototype.
+- Docker hosts chat-scoped agent runtimes. The worker needs `/var/run/docker.sock` in this prototype.
 - Compose starts three worker replicas by default, allowing three concurrent runs. Set `WORKER_REPLICAS` to tune this for available CPU, memory, and model budget.
 - Git is required by the worker. Only HTTPS URLs on `ALLOWED_GIT_HOSTS` are accepted.
 - OpenAI API keys are encrypted per user and configured from Home, not server environment variables. Each real run invokes `codex exec`; `CODEX_MODEL` can override the CLI's current default model.
