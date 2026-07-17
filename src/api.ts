@@ -15,7 +15,7 @@ declare module 'fastify' { interface FastifyRequest { authUser?:AuthUser; authTo
 const app=Fastify({logger:true,bodyLimit:64_000});
 await app.register(fastifyStatic,{root:path.resolve('public')});
 const sessionInput=z.object({title:z.string().trim().min(1).max(100),repoUrl:z.string().trim().max(500).optional().default(''),branch:z.string().trim().max(120).optional().default(''),agentCount:z.number().int().min(1).max(4).default(1)});
-const promptInput=z.object({prompt:z.string().trim().min(1).max(10_000)});
+const promptInput=z.object({prompt:z.string().trim().min(1).max(10_000),thinkingLevel:z.enum(['low','medium','high','xhigh']).nullable().optional().default(null)});
 const openAiKeyInput=z.object({key:z.string().trim().min(20).max(500)});
 const authCookie='relay_session';
 
@@ -37,7 +37,7 @@ app.get('/api/connections/github/repos',async(req,reply)=>{const token=await vau
 app.get('/api/connections/openai',async req=>({configured:Boolean(await vault.getUser(req.authUser!.id,'openai_api_key'))}));
 app.put('/api/connections/openai',async(req,reply)=>{const {key}=openAiKeyInput.parse(req.body);const validation=await fetch('https://api.openai.com/v1/models',{headers:{Authorization:`Bearer ${key}`}});if(!validation.ok)return reply.code(400).send({error:validation.status===401?'OpenAI rejected this API key. Create a valid key at platform.openai.com.':'Could not validate this OpenAI key.'});await vault.putUser(req.authUser!.id,'openai_api_key',key);return reply.code(204).send();});
 app.delete('/api/connections/openai',async(req,reply)=>{await pool.query(`DELETE FROM user_connections WHERE user_id=$1 AND name='openai_api_key'`,[req.authUser!.id]);return reply.code(204).send();});
-app.post<{Params:{id:string}}>('/api/sessions/:id/runs',async(req,reply)=>{ if(!await db.session(req.params.id,req.authUser!.id))return reply.code(404).send({error:'Session not found'}); const {prompt}=promptInput.parse(req.body); return reply.code(202).send(await db.createRun(req.params.id,prompt)); });
+app.post<{Params:{id:string}}>('/api/sessions/:id/runs',async(req,reply)=>{ if(!await db.session(req.params.id,req.authUser!.id))return reply.code(404).send({error:'Session not found'}); const {prompt,thinkingLevel}=promptInput.parse(req.body); return reply.code(202).send(await db.createRun(req.params.id,prompt,thinkingLevel)); });
 app.get<{Params:{id:string}}>('/api/runs/:id',async(req,reply)=>{ const run=await db.ownedRun(req.params.id,req.authUser!.id); if(!run)return reply.code(404).send({error:'Run not found'}); return {run,events:await db.events(run.id),artifacts:await db.artifacts(run.id)}; });
 app.post<{Params:{id:string}}>('/api/runs/:id/cancel',async(req,reply)=>{if(!await db.ownedRun(req.params.id,req.authUser!.id))return reply.code(404).send({error:'Run not found'});await db.requestCancel(req.params.id); return reply.code(202).send({ok:true}); });
 app.get<{Params:{runId:string;artifactId:string}}>('/api/runs/:runId/artifacts/:artifactId',async(req,reply)=>{if(!await db.ownedRun(req.params.runId,req.authUser!.id))return reply.code(404).send({error:'Artifact not found'});const item=(await db.artifacts(req.params.runId)).find(x=>x.id===req.params.artifactId); if(!item)return reply.code(404).send({error:'Artifact not found'}); const data=await fs.readFile(item.path); return reply.header('Content-Type',item.kind==='diff'?'text/x-diff':'application/octet-stream').header('Content-Disposition',`attachment; filename="${item.name.replaceAll('"','')}"`).send(data); });

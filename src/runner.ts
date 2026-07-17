@@ -53,7 +53,7 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   if(!chat.reused)await db.addEvent(run.id,'setup','Starting new chat container',`${config.agentImage} · ${session.repoUrl||'Blank workspace'}`);
   const agent=await container.exec({
     Cmd:['node','/runner/run.js'], AttachStdout:true, AttachStderr:true,
-    Env:[`RUN_ID=${run.id}`,`TASK=${run.prompt}`,`AGENT_COUNT=${session.agentCount}`,`OPENAI_API_KEY=${openAiKey||''}`,`GITHUB_TOKEN=${githubToken||''}`,`CODEX_MODEL=${process.env.CODEX_MODEL||''}`,`DIRECT_WORKSPACE=1`],
+    Env:[`RUN_ID=${run.id}`,`TASK=${run.prompt}`,`AGENT_COUNT=${session.agentCount}`,`OPENAI_API_KEY=${openAiKey||''}`,`GITHUB_TOKEN=${githubToken||''}`,`CODEX_MODEL=${process.env.CODEX_MODEL||''}`,`CODEX_THINKING_LEVEL=${run.thinkingLevel||''}`,`DIRECT_WORKSPACE=1`],
     WorkingDir:'/workspace', User:'10001:10001'
   });
   let output='';

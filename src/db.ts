@@ -5,8 +5,8 @@ import type { Artifact, Run, RunEvent, Session } from './types.js';
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.databaseUrl, max: 10, connectionTimeoutMillis: 15_000, ssl:config.isSupabase?{rejectUnauthorized:false}:undefined });
 const sessionColumns = `id, user_id AS "userId", title, repo_url AS "repoUrl", branch, agent_count AS "agentCount", status, pr_url AS "prUrl", pr_branch AS "prBranch", created_at AS "createdAt", updated_at AS "updatedAt"`;
-const runColumns = `id, session_id AS "sessionId", prompt, status, summary, error, pr_url AS "prUrl", cancel_requested AS "cancelRequested", created_at AS "createdAt", started_at AS "startedAt", finished_at AS "finishedAt"`;
-const leasedRunColumns = `r.id, r.session_id AS "sessionId", r.prompt, r.status, r.summary, r.error, r.pr_url AS "prUrl", r.cancel_requested AS "cancelRequested", r.created_at AS "createdAt", r.started_at AS "startedAt", r.finished_at AS "finishedAt"`;
+const runColumns = `id, session_id AS "sessionId", prompt, status, summary, error, pr_url AS "prUrl", thinking_level AS "thinkingLevel", cancel_requested AS "cancelRequested", created_at AS "createdAt", started_at AS "startedAt", finished_at AS "finishedAt"`;
+const leasedRunColumns = `r.id, r.session_id AS "sessionId", r.prompt, r.status, r.summary, r.error, r.pr_url AS "prUrl", r.thinking_level AS "thinkingLevel", r.cancel_requested AS "cancelRequested", r.created_at AS "createdAt", r.started_at AS "startedAt", r.finished_at AS "finishedAt"`;
 
 export const db = {
   async sessions(userId:string): Promise<Session[]> { return (await pool.query(`SELECT ${sessionColumns} FROM sessions WHERE user_id=$1 ORDER BY updated_at DESC`,[userId])).rows; },
@@ -18,10 +18,10 @@ export const db = {
   async runs(sessionId: string): Promise<Run[]> { return (await pool.query(`SELECT ${runColumns} FROM runs WHERE session_id=$1 ORDER BY created_at`, [sessionId])).rows; },
   async run(id: string): Promise<Run | null> { return (await pool.query(`SELECT ${runColumns} FROM runs WHERE id=$1`, [id])).rows[0] || null; },
   async ownedRun(id:string,userId:string):Promise<Run|null>{return (await pool.query(`SELECT ${leasedRunColumns} FROM runs r JOIN sessions s ON s.id=r.session_id WHERE r.id=$1 AND s.user_id=$2`,[id,userId])).rows[0]||null;},
-  async createRun(sessionId: string, prompt: string): Promise<Run> {
+  async createRun(sessionId: string, prompt: string, thinkingLevel: string|null=null): Promise<Run> {
     const client = await pool.connect();
     try { await client.query('BEGIN');
-      const result = await client.query(`INSERT INTO runs(id,session_id,prompt) VALUES(gen_random_uuid(),$1,$2) RETURNING ${runColumns}`, [sessionId, prompt]);
+      const result = await client.query(`INSERT INTO runs(id,session_id,prompt,thinking_level) VALUES(gen_random_uuid(),$1,$2,$3) RETURNING ${runColumns}`, [sessionId, prompt, thinkingLevel]);
       await client.query(`UPDATE sessions SET status='queued',updated_at=now() WHERE id=$1`, [sessionId]); await client.query('COMMIT'); return result.rows[0];
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
   },
