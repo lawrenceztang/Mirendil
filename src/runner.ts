@@ -2,7 +2,7 @@ import Docker from 'dockerode';
 import { Writable } from 'node:stream';
 import { config } from './config.js';
 import { db } from './db.js';
-import { changedFiles, ensureWorkspace, headRevision, makeAgentWritable, prepareAgentBranch, publishPullRequest } from './repository.js';
+import { changedFiles, ensureWorkspace, makeAgentWritable, prepareAgentBranch } from './repository.js';
 import type { Run, Session } from './types.js';
 import { vault } from './vault.js';
 
@@ -47,7 +47,6 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   const prepared=await prepareAgentBranch(session,workspace,githubToken);const branch=prepared.branch;
   if(prepared.replacedMergedPullRequest){await db.replaceMergedPullRequest(session.id,branch);session.prUrl=null;session.prBranch=branch;await db.addEvent(run.id,'setup','Starting a new pull request',`The previous pull request was merged; using ${branch}`);}
   else if(!session.prBranch){await db.setSessionBranch(session.id,branch);session.prBranch=branch;}
-  const headBefore=await headRevision(workspace);
   const chat=await chatContainer(session,workspace);const container=chat.container;
   await makeAgentWritable(workspace,!chat.reused||prepared.replacedMergedPullRequest);
   if(!chat.reused)await db.addEvent(run.id,'setup','Starting new chat container',`${config.agentImage} · ${session.repoUrl||'Blank workspace'}`);
@@ -70,14 +69,13 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   const codexMarker=output.split('\n').find(line=>line.startsWith('RELAY_CODEX:'));
   if(codexMarker)await db.addEvent(run.id,'agent','Codex agent verified',codexMarker.slice('RELAY_CODEX:'.length).trim());
   const changes=await changedFiles(workspace);
-  const headChanged=(await headRevision(workspace))!==headBefore;
   if(changes.length)await db.addEvent(run.id,'result','Repository files changed',changes.slice(0,20).join(', '));
   const marker=output.split('\n').find(line=>line.startsWith('RELAY_RESULT:'));
   const summary=marker ? marker.slice('RELAY_RESULT:'.length).trim() : 'The agent completed its workspace task.';
-  if((changes.length||headChanged) && githubToken) {
-    await db.addEvent(run.id,'publish',session.prUrl?'Updating existing pull request':'Creating pull request');
-    const published=await publishPullRequest(session,run.id,run.prompt,summary,workspace,githubToken);
-    if(published){await db.setPullRequest(run.id,published.url);if(published.created)await db.setSessionPullRequest(session.id,published.url,published.branch);await db.addEvent(run.id,'publish',published.created?'Pull request created':'Pull request updated',published.url);}
+  const prMarker=output.split('\n').filter(line=>line.startsWith('RELAY_PR:')).at(-1);
+  if(prMarker){
+    const published=JSON.parse(prMarker.slice('RELAY_PR:'.length)) as {url:string;branch:string};const url=new URL(published.url);
+    if(url.protocol==='https:'&&url.hostname==='github.com'&&/^\/[^/]+\/[^/]+\/pull\/\d+$/.test(url.pathname)&&published.branch){await db.setPullRequest(run.id,published.url);await db.setSessionPullRequest(session.id,published.url,published.branch);await db.addEvent(run.id,'publish','Pull request published by Codex',published.url);}
   }
   return summary;
 }
