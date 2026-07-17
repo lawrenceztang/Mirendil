@@ -21,7 +21,7 @@ Example:
 1. Create workspace “Fastify sample”.
 2. Use `https://github.com/fastify/fastify-example.git` (or leave the repository blank).
 3. Request: `Inspect this project and add a concise CONTRIBUTING.md for first-time contributors.`
-4. Leave the page, return to the session URL, and open the draft pull request.
+4. Leave the page, return to the session URL, and open the pull request.
 
 > Docker Desktop detail: the child run container is created through the host Docker socket. Compose therefore mounts `.relay/workspaces` at the same absolute path inside the worker and on the host. Run Compose from this repository directory; do not relocate it while runs are active.
 
