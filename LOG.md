@@ -41,3 +41,7 @@ Brief, chronological, append-only. Records only important user-driven product an
 18. **User required conversational PR continuity.** Made each chat own one PR branch so later prompts commit to and update the existing pull request.
 
 19. **User hosted Relay on AWS EC2.** Deployed the Docker-based web, worker, and per-run Codex container architecture on a cloud VM with Supabase persistence.
+
+20. **User required Codex to modify Git workspaces on Linux.** Made the trusted worker grant each bind-mounted workspace to the non-root Codex UID before execution.
+
+21. **User chose copy-in/copy-out agent isolation.** Codex now edits a private container copy; Relay validates and imports working-tree output while keeping host Git metadata inaccessible.

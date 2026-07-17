@@ -6,7 +6,13 @@ import { promisify } from 'node:util';
 
 const task=process.env.TASK||'Inspect the repository';
 const root=process.env.WORKSPACE_ROOT||'/workspace';
+const input=process.env.REPO_INPUT||'/repo-input';
+const output=process.env.REPO_OUTPUT||'/repo-output';
 const execFileAsync=promisify(execFile);
+
+// The host repository is mounted read-only. Codex works only on this private
+// container copy, so its Git metadata and hooks disappear with the container.
+await fs.cp(input,root,{recursive:true,force:true,verbatimSymlinks:true});
 
 async function files(dir=root,depth=0){
   if(depth>3)return[];const result=[];
@@ -19,9 +25,18 @@ async function files(dir=root,depth=0){
   return result;
 }
 
+async function exportOutput(){
+  for(const entry of await fs.readdir(output))await fs.rm(path.join(output,entry),{recursive:true,force:true});
+  for(const entry of await fs.readdir(root)){
+    if(entry==='.git'||entry==='.relay-diff.patch')continue;
+    await fs.cp(path.join(root,entry),path.join(output,entry),{recursive:true,force:true,verbatimSymlinks:true});
+  }
+}
+
 if(!process.env.OPENAI_API_KEY){
   const repoFiles=await files();
   const snapshot=repoFiles.slice(0,30).join(', ')||'empty workspace';
+  await exportOutput();
   console.log(`RELAY_RESULT: Demo inspected the repository without changing it (${snapshot}). Add an OpenAI API key to enable answers and coding tasks.`);
   process.exit(0);
 }
@@ -50,4 +65,5 @@ const exitCode=await new Promise((resolve,reject)=>{
 if(exitCode!==0)throw new Error(`Codex exited with status ${exitCode}`);
 let summary='Codex completed the repository task.';
 try{summary=(await fs.readFile(finalMessage,'utf8')).trim()||summary;}catch{}
+await exportOutput();
 console.log(`RELAY_RESULT: ${summary.replaceAll('\n',' ').slice(0,4000)}`);

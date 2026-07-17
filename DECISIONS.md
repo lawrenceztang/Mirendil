@@ -8,7 +8,7 @@ The essential value is not a clever chat completion; it is trustworthy delegatio
 
 Sessions have stable hash URLs, live in a recent-chats sidebar, and expose explicit queued, running, completed, failed, cancelled, and interrupted states. A run renders as the original request followed by a task-level event trail, final summary, and pull-request link. Events show actions such as preparing the workspace without exposing hidden chain-of-thought.
 
-Creating a workspace asks only for a name, optional repository, branch, and agent count. Repository credentials and deployment settings are deliberately absent from the happy path. Empty repositories and keyless demo mode let an evaluator see the complete system immediately.
+Creating a chat asks only for a repository, selected from the signed-in GitHub account or entered as an HTTPS URL. Branch, worker, credential, and deployment details stay out of the task flow.
 
 The UI uses Server-Sent Events because progress is server-to-client and reconnection is built in. Durable events remain queryable after the stream closes, so SSE is an optimization rather than the source of truth.
 
@@ -22,7 +22,7 @@ Workspaces live outside containers on persistent storage so Codex edits survive 
 
 ## Isolation and secrets
 
-Each run gets a fresh non-root Docker container with dropped Linux capabilities, `no-new-privileges`, PID/CPU/memory limits, and only its workspace mounted writable. Demo runs have no network. Model-enabled runs currently use bridge networking; a production sandbox would use an egress proxy limited to the inference service and package registries selected by the user.
+Each run gets a fresh non-root Docker container with dropped Linux capabilities, `no-new-privileges`, and PID/CPU/memory limits. The trusted repository is mounted read-only and copied into the container's private filesystem. After success, Relay validates file count, total size, types, symlinks, and exclusion of `.git` before importing the output. Demo runs have no network; model-enabled runs currently use bridge networking.
 
 GitHub OAuth provides both Relay identity and repository authorization with signed, expiring state. Login tokens are hashed; delegated GitHub tokens are encrypted per user and omitted from logs/model context. Every chat, run, event stream, cancellation, and artifact lookup is ownership-filtered. Git credentials are applied through process-scoped authorization headers rather than repository configuration. A production GitHub App would further improve repository selection and token lifetime.
 
@@ -36,7 +36,7 @@ Each queue worker owns one run at a time and launches one Codex agent container.
 
 The API and worker are separate entry points but share strict TypeScript domain/database modules. Fastify offers a small, typed HTTP surface. Zod validates data at trust boundaries. SQL is explicit because the lease query is central behavior worth seeing and reviewing. The frontend is dependency-free JavaScript/CSS to keep the submission focused on the cloud-agent system.
 
-The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, and verification commands. Codex bypasses inner approval prompts because the disposable container is the outer security boundary: it is non-root, capability-dropped, resource-limited, and mounts only the run workspace. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
+The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, and verification commands. Codex bypasses inner approval prompts because the disposable container is the outer security boundary. Copy-in/copy-out keeps trusted host Git metadata outside Codex's writable filesystem. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
 
 ## Hosting
 

@@ -4,6 +4,7 @@ RUN apk add --no-cache git bash ca-certificates \
 RUN addgroup -S agent && adduser -S -u 10001 -G agent agent
 WORKDIR /runner
 COPY agent-runtime/run.js ./run.js
+RUN mkdir -p /workspace /repo-output && chown -R 10001:agent /workspace /repo-output
 USER agent
 RUN git config --global --add safe.directory /workspace
 ENTRYPOINT ["node", "/runner/run.js"]
