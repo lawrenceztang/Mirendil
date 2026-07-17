@@ -41,7 +41,9 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   const githubToken=session.userId&&session.repoUrl?.includes('github.com')?await vault.getUser(session.userId,'github_token'):null;
   const openAiKey=session.userId?await vault.getUser(session.userId,'openai_api_key'):null;
   const workspace=await ensureWorkspace(session,githubToken);
-  const branch=await prepareAgentBranch(session,workspace);if(!session.prBranch){await db.setSessionBranch(session.id,branch);session.prBranch=branch;}
+  const prepared=await prepareAgentBranch(session,workspace,githubToken);const branch=prepared.branch;
+  if(prepared.replacedMergedPullRequest){await db.replaceMergedPullRequest(session.id,branch);session.prUrl=null;session.prBranch=branch;await db.addEvent(run.id,'setup','Starting a new pull request',`The previous pull request was merged; using ${branch}`);}
+  else if(!session.prBranch){await db.setSessionBranch(session.id,branch);session.prBranch=branch;}
   const headBefore=await headRevision(workspace);
   await makeAgentWritable(workspace);
   await db.addEvent(run.id,'setup','Mounting scoped Codex workspace',`Codex may commit and push ${branch}`);
