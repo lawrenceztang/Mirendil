@@ -12,13 +12,17 @@ export function chatContainerName(sessionId: string): string {
   return `relay-chat-${sessionId}`;
 }
 
-async function chatContainer(session: Session, workspace: string): Promise<Docker.Container> {
+export function codexVolumeName(sessionId:string):string{return `relay-codex-${sessionId}`;}
+
+async function chatContainer(session: Session, workspace: string): Promise<{container:Docker.Container;reused:boolean}> {
   const name=chatContainerName(session.id);
+  const image=await docker.getImage(config.agentImage).inspect();
   const existing=docker.getContainer(name);
   try {
     const details=await existing.inspect();
     const hasWorkspace=details.Mounts.some(m=>m.Destination==='/workspace'&&m.Source===workspace&&m.RW);
-    if(details.State.Running&&details.Config.Image===config.agentImage&&hasWorkspace)return existing;
+    const hasCodexHome=details.Mounts.some(m=>m.Destination==='/home/agent/.codex'&&m.Name===codexVolumeName(session.id)&&m.RW);
+    if(details.State.Running&&details.Image===image.Id&&hasWorkspace&&hasCodexHome)return {container:existing,reused:true};
     await existing.remove({force:true});
   } catch(error) {
     const status=(error as {statusCode?:number}).statusCode;
@@ -30,14 +34,13 @@ async function chatContainer(session: Session, workspace: string): Promise<Docke
     Labels:{'relay.chat':session.id},
     Entrypoint:['/bin/sh','-c'], Cmd:['while :; do sleep 3600; done'],
     WorkingDir:'/workspace', User:'10001:10001',
-    HostConfig:{ AutoRemove:false, NetworkMode:'bridge', Memory:1024*1024*1024, NanoCpus:1_000_000_000, PidsLimit:128, CapDrop:['ALL'], SecurityOpt:['no-new-privileges'], Mounts:[{Type:'bind',Source:workspace,Target:'/workspace',ReadOnly:false}] }
+    HostConfig:{ AutoRemove:false, NetworkMode:'bridge', Memory:1024*1024*1024, NanoCpus:1_000_000_000, PidsLimit:128, CapDrop:['ALL'], SecurityOpt:['no-new-privileges'], Mounts:[{Type:'bind',Source:workspace,Target:'/workspace',ReadOnly:false},{Type:'volume',Source:codexVolumeName(session.id),Target:'/home/agent/.codex',ReadOnly:false}] }
   });
   await created.start();
-  return created;
+  return {container:created,reused:false};
 }
 
 export async function execute(run: Run, session: Session, signal: AbortSignal): Promise<string> {
-  await db.addEvent(run.id,'setup','Preparing isolated workspace',session.repoUrl || 'Blank git workspace');
   const githubToken=session.userId&&session.repoUrl?.includes('github.com')?await vault.getUser(session.userId,'github_token'):null;
   const openAiKey=session.userId?await vault.getUser(session.userId,'openai_api_key'):null;
   const workspace=await ensureWorkspace(session,githubToken);
@@ -45,10 +48,9 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   if(prepared.replacedMergedPullRequest){await db.replaceMergedPullRequest(session.id,branch);session.prUrl=null;session.prBranch=branch;await db.addEvent(run.id,'setup','Starting a new pull request',`The previous pull request was merged; using ${branch}`);}
   else if(!session.prBranch){await db.setSessionBranch(session.id,branch);session.prBranch=branch;}
   const headBefore=await headRevision(workspace);
-  await makeAgentWritable(workspace);
-  await db.addEvent(run.id,'setup','Mounting scoped Codex workspace',`Codex may commit and push ${branch}`);
-  await db.addEvent(run.id,'setup','Starting Codex agent in chat container',config.agentImage);
-  const container=await chatContainer(session,workspace);
+  const chat=await chatContainer(session,workspace);const container=chat.container;
+  await makeAgentWritable(workspace,!chat.reused||prepared.replacedMergedPullRequest);
+  if(!chat.reused)await db.addEvent(run.id,'setup','Starting new chat container',`${config.agentImage} · ${session.repoUrl||'Blank workspace'}`);
   const agent=await container.exec({
     Cmd:['node','/runner/run.js'], AttachStdout:true, AttachStderr:true,
     Env:[`RUN_ID=${run.id}`,`TASK=${run.prompt}`,`AGENT_COUNT=${session.agentCount}`,`OPENAI_API_KEY=${openAiKey||''}`,`GITHUB_TOKEN=${githubToken||''}`,`CODEX_MODEL=${process.env.CODEX_MODEL||''}`,`DIRECT_WORKSPACE=1`],
@@ -56,6 +58,7 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   });
   let output='';
   const stream=await agent.start({hijack:true,stdin:false});
+  await db.addEvent(run.id,'agent',chat.reused?'Continuing Codex conversation':'Codex process started',chat.reused?'Prompt passed to the existing chat thread':branch);
   const sink=new Writable({write(chunk,_encoding,callback){output=(output+chunk.toString()).slice(-2_000_000);callback();}});
   docker.modem.demuxStream(stream,sink,sink);
   const stop=async()=>{ try { await container.remove({force:true}); } catch {} };

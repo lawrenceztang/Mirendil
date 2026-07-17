@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import crypto from 'node:crypto';
 
 const task=process.env.TASK||'Inspect the repository';
 const root=process.env.WORKSPACE_ROOT||'/workspace';
@@ -63,7 +64,7 @@ if(!process.env.OPENAI_API_KEY){
 }
 
 const finalMessage=path.join('/tmp',`codex-last-message-${process.env.RUN_ID||process.pid}.txt`);
-const codexHome=path.join('/tmp',`relay-codex-${process.env.RUN_ID||process.pid}`);
+const codexHome='/home/agent/.codex';
 await fs.mkdir(codexHome,{recursive:true,mode:0o700});
 const {stdout:codexVersion}=await execFileAsync('codex',['--version']);
 console.log(`RELAY_CODEX: ${codexVersion.trim()}`);
@@ -78,14 +79,21 @@ if(process.env.GITHUB_TOKEN){
     GIT_CONFIG_KEY_3:'push.autoSetupRemote',GIT_CONFIG_VALUE_3:'true'
   });
 }
-await new Promise((resolve,reject)=>{
-  const login=spawn('codex',['login','--with-api-key'],{stdio:['pipe','inherit','inherit'],env:codexEnv});
-  login.on('error',reject);login.on('close',code=>code===0?resolve():reject(new Error(`Codex API-key login exited with status ${code}`)));
-  login.stdin.end(`${process.env.OPENAI_API_KEY}\n`);
-});
+const keyMarker=path.join(codexHome,'.relay-key-hash');
+const keyHash=crypto.createHash('sha256').update(process.env.OPENAI_API_KEY).digest('hex');
+let authenticated=false;try{authenticated=(await fs.readFile(keyMarker,'utf8'))===keyHash;}catch{}
+if(!authenticated){await new Promise((resolve,reject)=>{
+    const login=spawn('codex',['login','--with-api-key'],{stdio:['pipe','inherit','inherit'],env:codexEnv});
+    login.on('error',reject);login.on('close',code=>code===0?resolve():reject(new Error(`Codex API-key login exited with status ${code}`)));
+    login.stdin.end(`${process.env.OPENAI_API_KEY}\n`);
+  });await fs.writeFile(keyMarker,keyHash,{mode:0o600});
+}
 delete codexEnv.OPENAI_API_KEY;
-const prompt=`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\nDetermine whether the user is asking a question or requesting a repository change. If it is a question, inspect the repository as needed and answer it without changing files. If a change is requested, make the smallest complete change, run relevant tests or checks, then commit and push the current Relay chat branch. You may use Git freely and should push each coherent completed change by default. Finish with a concise text response addressed directly to the user; this response is separate from Git commits, pushes, and pull-request delivery.`;
-const args=['exec','--dangerously-bypass-approvals-and-sandbox','--ephemeral','--ignore-user-config','--skip-git-repo-check','--color','never','--output-last-message',finalMessage,'--cd',root];
+const threadMarker=path.join(codexHome,'.relay-thread-started');
+let continuing=false;try{await fs.access(threadMarker);continuing=true;}catch{}
+const instructions=`Determine whether the user is asking a question or requesting a repository change. If it is a question, inspect the repository as needed and answer it without changing files. If a change is requested, make the smallest complete change, run relevant tests or checks, then commit and push the current Relay chat branch. You may use Git freely and should push each coherent completed change by default. Finish with a concise text response addressed directly to the user; this response is separate from Git commits, pushes, and pull-request delivery.`;
+const prompt=continuing?`Continue the existing Relay chat.\n\nNew user request: ${task}\n\n${instructions}`:`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\n${instructions}`;
+const args=continuing?['exec','resume','--last','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--output-last-message',finalMessage]:['exec','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--color','never','--output-last-message',finalMessage,'--cd',root];
 if(process.env.CODEX_MODEL)args.push('--model',process.env.CODEX_MODEL);
 args.push(prompt);
 
@@ -94,8 +102,9 @@ const exitCode=await new Promise((resolve,reject)=>{
   child.on('error',reject);child.on('close',resolve);
 });
 if(exitCode!==0)throw new Error(`Codex exited with status ${exitCode}`);
+if(!continuing)await fs.writeFile(threadMarker,'started',{mode:0o600});
 let summary='Codex completed the repository task.';
 try{summary=(await fs.readFile(finalMessage,'utf8')).trim()||summary;}catch{}
-await fs.rm(codexHome,{recursive:true,force:true});
+await fs.rm(finalMessage,{force:true});
 await exportOutput();
 console.log(`RELAY_RESULT: ${summary.replaceAll('\n',' ').slice(0,4000)}`);

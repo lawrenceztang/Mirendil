@@ -75,10 +75,10 @@ export async function prepareAgentBranch(session:Session,workspace:string,github
   return {branch,replacedMergedPullRequest:false};
 }
 
-export async function makeAgentWritable(workspace:string):Promise<void>{
+export async function makeAgentWritable(workspace:string,includeDependencies=true):Promise<void>{
   async function visit(current:string):Promise<void>{
     const stat=await fs.lstat(current);if(stat.isSymbolicLink())return;
-    if(stat.isDirectory())for(const entry of await fs.readdir(current))await visit(path.join(current,entry));
+    if(stat.isDirectory())for(const entry of await fs.readdir(current)){if(!includeDependencies&&entry==='node_modules')continue;await visit(path.join(current,entry));}
     await fs.chmod(current,stat.mode|(stat.isDirectory()?0o777:0o666));
   }
   await visit(workspace);
