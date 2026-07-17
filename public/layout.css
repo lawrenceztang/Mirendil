@@ -5,3 +5,8 @@ nav,.timeline{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
 nav{scrollbar-gutter:stable}
 .timeline{scrollbar-gutter:stable both-edges}
 .chat{width:100%;max-width:none;flex:1;padding:0 28px}
+.steps{border-left:0;margin:14px 0 0 42px;padding:0}
+.step{padding:7px 12px;border-left:2px solid var(--line)}
+.step:before{left:-5px;top:13px;width:8px;height:8px}
+.step strong{display:block;line-height:1.4}
+.step p{color:#68736c;line-height:1.45;margin-top:3px;overflow-wrap:anywhere}
