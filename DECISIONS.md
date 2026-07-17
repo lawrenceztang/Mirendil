@@ -18,7 +18,7 @@ PostgreSQL owns both product state and queue state. A worker atomically leases t
 
 The current runtime restarts reclaimed work from the durable workspace rather than resuming a process instruction-by-instruction. Exact process continuation is fragile; restarting from a known workspace is simpler to reason about. In production, each tool call would have an idempotency key and checkpoint so the lead agent can reconstruct context safely.
 
-Workspaces live outside containers on persistent storage so Codex edits survive run-container exit. Relay detects changed filenames, commits the workspace directly, and opens a draft pull request without generating a parallel patch artifact.
+Workspaces live outside containers on persistent storage so Codex edits survive run-container exit. Relay detects changed filenames, commits the workspace directly, and opens a pull request without generating a parallel patch artifact.
 
 ## Isolation and secrets
 
@@ -44,7 +44,7 @@ For a small deployment: managed PostgreSQL, one API service, one or more worker 
 
 ## What I would do next
 
-1. GitHub App installation, scoped clone/push, and draft PR creation.
+1. GitHub App installation, scoped clone/push, and PR creation.
 2. Run-scoped model proxy and KMS envelope encryption.
 3. True read-only investigator fan-out plus lead synthesis.
 4. Sandboxed command/test tool with egress policy and seccomp.

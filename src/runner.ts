@@ -42,9 +42,9 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   const marker=output.split('\n').find(line=>line.startsWith('RELAY_RESULT:'));
   const summary=marker ? marker.slice('RELAY_RESULT:'.length).trim() : 'The agent completed its workspace task.';
   if((changes.length||headChanged) && githubToken) {
-    await db.addEvent(run.id,'publish',session.prUrl?'Updating existing pull request':'Creating draft pull request');
+    await db.addEvent(run.id,'publish',session.prUrl?'Updating existing pull request':'Creating pull request');
     const published=await publishPullRequest(session,run.id,run.prompt,summary,workspace,githubToken);
-    if(published){await db.setPullRequest(run.id,published.url);if(published.created)await db.setSessionPullRequest(session.id,published.url,published.branch);await db.addEvent(run.id,'publish',published.created?'Draft pull request created':'Pull request updated',published.url);}
+    if(published){await db.setPullRequest(run.id,published.url);if(published.created)await db.setSessionPullRequest(session.id,published.url,published.branch);await db.addEvent(run.id,'publish',published.created?'Pull request created':'Pull request updated',published.url);}
   }
   return summary;
 }
