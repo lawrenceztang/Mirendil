@@ -2,6 +2,38 @@
 
 This guide deploys Relay to a single AWS EC2 instance. The API and workers run on the VM, temporary Codex containers run through its Docker daemon, and application data remains in Supabase.
 
+## Quick redeploy
+
+For normal API, UI, worker, or Compose changes:
+
+```bash
+cd ~/mirendil
+git pull
+docker compose up -d --build --force-recreate web worker
+```
+
+Verify the production URL reached the web container:
+
+```bash
+docker compose exec web printenv PUBLIC_URL
+```
+
+If `Dockerfile.agent` or anything in `agent-runtime/` changed, rebuild the Codex image too:
+
+```bash
+cd ~/mirendil
+git pull
+docker build --no-cache -f Dockerfile.agent -t relay-agent:latest .
+docker compose up -d --build --force-recreate worker
+```
+
+Check the deployment:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 web worker
+```
+
 ## 1. Instance requirements
 
 Recommended starting size:
