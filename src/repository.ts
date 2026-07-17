@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { config } from './config.js';
 import type { Session } from './types.js';
@@ -47,8 +48,32 @@ export async function changedFiles(workspace:string):Promise<string[]>{const out
 
 export async function headRevision(workspace:string):Promise<string>{return command('git',['-c',`safe.directory=${workspace}`,'rev-parse','HEAD'],workspace);}
 
-export async function prepareAgentBranch(session:Session,workspace:string):Promise<string>{const branch=session.prBranch||`relay/chat-${session.id.slice(0,8)}`;const git=(args:string[])=>command('git',['-c',`safe.directory=${workspace}`,...args],workspace);
-  try{await git(['switch',branch]);}catch{await git(['switch','-c',branch]);}return branch;}
+export async function pullRequestIsMerged(session:Session,githubToken:string,request:typeof fetch=fetch):Promise<boolean>{
+  if(!session.prUrl||!session.repoUrl)return false;
+  const repoUrl=validateRepoUrl(session.repoUrl);const prUrl=new URL(session.prUrl);
+  const repoParts=repoUrl.pathname.replace(/^\//,'').replace(/\.git$/,'').split('/');const parts=prUrl.pathname.replace(/^\//,'').split('/');const number=parts[3];
+  if(prUrl.hostname!=='github.com'||parts.length!==4||parts[0]!==repoParts[0]||parts[1]!==repoParts[1]||parts[2]!=='pull'||!number||!/^\d+$/.test(number))return false;
+  const response=await request(`https://api.github.com/repos/${parts[0]}/${parts[1]}/pulls/${number}`,{headers:{Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'relay-cloud-agent'}});
+  if(!response.ok)throw new Error(`GitHub PR lookup failed (${response.status}): ${(await response.text()).slice(0,500)}`);
+  return Boolean((await response.json() as {merged_at?:string|null}).merged_at);
+}
+
+export async function prepareAgentBranch(session:Session,workspace:string,githubToken?:string|null):Promise<{branch:string;replacedMergedPullRequest:boolean}>{
+  const git=(args:string[])=>command('git',['-c',`safe.directory=${workspace}`,...args],workspace);
+  const merged=Boolean(githubToken&&await pullRequestIsMerged(session,githubToken));
+  if(merged){
+    const url=validateRepoUrl(session.repoUrl!);const auth=['-c',`http.${url.origin}/.extraHeader=Authorization: Basic ${Buffer.from(`x-access-token:${githubToken}`).toString('base64')}`];
+    let base=session.branch;
+    if(!base){try{base=(await git(['symbolic-ref','refs/remotes/origin/HEAD','--short'])).replace(/^origin\//,'');}catch{base='main';}}
+    await git([...auth,'fetch','origin',base]);
+    const branch=`relay/chat-${session.id.slice(0,8)}-${crypto.randomUUID().slice(0,8)}`;
+    await git(['switch','-c',branch,`origin/${base}`]);
+    return {branch,replacedMergedPullRequest:true};
+  }
+  const branch=session.prBranch||`relay/chat-${session.id.slice(0,8)}`;
+  try{await git(['switch',branch]);}catch{await git(['switch','-c',branch]);}
+  return {branch,replacedMergedPullRequest:false};
+}
 
 export async function makeAgentWritable(workspace:string):Promise<void>{
   async function visit(current:string):Promise<void>{
