@@ -2,7 +2,7 @@ import Docker from 'dockerode';
 import { Writable } from 'node:stream';
 import { config } from './config.js';
 import { db } from './db.js';
-import { changedFiles, ensureWorkspace, publishPullRequest } from './repository.js';
+import { changedFiles, ensureWorkspace, grantWorkspaceAccess, publishPullRequest } from './repository.js';
 import type { Run, Session } from './types.js';
 import { vault } from './vault.js';
 
@@ -13,6 +13,7 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   const githubToken=session.userId&&session.repoUrl?.includes('github.com')?await vault.getUser(session.userId,'github_token'):null;
   const openAiKey=session.userId?await vault.getUser(session.userId,'openai_api_key'):null;
   const workspace=await ensureWorkspace(session,githubToken);
+  await grantWorkspaceAccess(workspace);
   await db.addEvent(run.id,'setup','Starting Codex agent container',config.agentImage);
   const container=await docker.createContainer({
     Image: config.agentImage,
