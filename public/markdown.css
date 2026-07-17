@@ -1,0 +1,17 @@
+.run-steps{margin:10px 0 0 42px;color:var(--muted)}
+.run-steps>summary{cursor:pointer;font-size:12px;font-weight:650;width:max-content}
+.run-steps>summary:hover{color:var(--ink)}
+.run-steps>summary span{font-weight:400}
+.run-steps .steps{margin-top:8px}
+.step-detail{color:var(--muted);font-size:12px;margin:2px 0}
+.markdown>*:first-child{margin-top:0}
+.markdown>*:last-child{margin-bottom:0}
+.markdown p{margin:.45em 0}
+.markdown h1,.markdown h2,.markdown h3{font-family:inherit;font-weight:650;margin:.8em 0 .3em}
+.markdown h1{font-size:1.3em}.markdown h2{font-size:1.18em}.markdown h3{font-size:1.08em}
+.markdown ul,.markdown ol{margin:.4em 0;padding-left:1.5em}
+.markdown pre{overflow:auto;background:#eef0ed;border-radius:7px;padding:10px}
+.prompt-card.markdown pre{background:#ffffff18}
+.markdown code{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;background:#17201c0d;border-radius:4px;padding:1px 4px}
+.markdown pre code{background:transparent;padding:0}
+.markdown a{color:var(--green)}.prompt-card.markdown a{color:#bde7d0}
