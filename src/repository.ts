@@ -43,6 +43,16 @@ export async function ensureWorkspace(session: Session, githubToken?: string | n
   await command('git',args,dir,300_000); return dir;
 }
 
+export async function grantWorkspaceAccess(workspace: string, uid = 10001, gid = 10001): Promise<void> {
+  const entries = await fs.readdir(workspace, { withFileTypes: true });
+  await Promise.all(entries.map(async entry => {
+    const item = path.join(workspace, entry.name);
+    if (entry.isDirectory() && !entry.isSymbolicLink()) await grantWorkspaceAccess(item, uid, gid);
+    await fs.lchown(item, uid, gid);
+  }));
+  await fs.lchown(workspace, uid, gid);
+}
+
 export async function changedFiles(workspace:string):Promise<string[]>{const output=await command('git',['-c',`safe.directory=${workspace}`,'status','--porcelain','--untracked-files=all'],workspace);return output.split('\n').filter(Boolean).map(line=>line.slice(3)).filter(file=>file!=='.relay-diff.patch');}
 
 export async function publishPullRequest(session: Session, runId: string, prompt: string, summary: string, workspace: string, githubToken: string): Promise<{url:string;branch:string;created:boolean} | null> {
