@@ -34,7 +34,7 @@ export const db = {
   async setPullRequest(runId: string, prUrl: string): Promise<void> { await pool.query(`UPDATE runs SET pr_url=$2 WHERE id=$1`,[runId,prUrl]); },
   async setSessionPullRequest(sessionId:string,prUrl:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=$2,pr_branch=$3,updated_at=now() WHERE id=$1`,[sessionId,prUrl,prBranch]);},
   async setSessionBranch(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
-  async replaceMergedPullRequest(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=null,pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
+  async replacePullRequest(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=null,pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
   async requestCancel(runId: string): Promise<void> { await pool.query(`UPDATE runs SET cancel_requested=true WHERE id=$1 AND status IN ('queued','running')`, [runId]); },
   async leaseRun(workerId: string): Promise<Run | null> {
     const result = await pool.query(`WITH next AS (SELECT candidate.id FROM runs candidate JOIN sessions chat ON chat.id=candidate.session_id WHERE (candidate.status='queued' AND NOT EXISTS (SELECT 1 FROM runs earlier WHERE earlier.session_id=candidate.session_id AND ((earlier.status='queued' AND (earlier.created_at,earlier.id)<(candidate.created_at,candidate.id)) OR earlier.status='running'))) OR (candidate.status='running' AND candidate.lease_expires_at<now()) ORDER BY candidate.created_at,candidate.id FOR UPDATE OF candidate,chat SKIP LOCKED LIMIT 1)

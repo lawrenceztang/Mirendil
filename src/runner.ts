@@ -45,11 +45,11 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   const openAiKey=session.userId?await vault.getUser(session.userId,'openai_api_key'):null;
   const workspace=await ensureWorkspace(session,githubToken);
   const prepared=await prepareAgentBranch(session,workspace,githubToken);const branch=prepared.branch;
-  if(prepared.replacedMergedPullRequest){await db.replaceMergedPullRequest(session.id,branch);session.prUrl=null;session.prBranch=branch;await db.addEvent(run.id,'setup','Starting a new pull request',`The previous pull request was merged; using ${branch}`);}
+  if(prepared.replacedPullRequest){await db.replacePullRequest(session.id,branch);session.prUrl=null;session.prBranch=branch;await db.addEvent(run.id,'setup','Starting a new pull request',`The previous pull request is no longer open; using ${branch}`);}
   else if(!session.prBranch){await db.setSessionBranch(session.id,branch);session.prBranch=branch;}
   else if(session.prUrl)await db.setPullRequest(run.id,session.prUrl);
   const chat=await chatContainer(session,workspace);const container=chat.container;
-  await makeAgentWritable(workspace,!chat.reused||prepared.replacedMergedPullRequest);
+  await makeAgentWritable(workspace,!chat.reused||prepared.replacedPullRequest);
   if(!chat.reused)await db.addEvent(run.id,'setup','Starting new chat container',`${config.agentImage} · ${session.repoUrl||'Blank workspace'}`);
   const agent=await container.exec({
     Cmd:['node','/runner/run.js'], AttachStdout:true, AttachStderr:true,

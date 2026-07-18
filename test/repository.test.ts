@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { makeAgentWritable, pullRequestIsMerged, validateRepoUrl } from '../src/repository.js';
+import { makeAgentWritable, pullRequestState, validateRepoUrl } from '../src/repository.js';
 import type { Session } from '../src/types.js';
 
 test('accepts allowlisted HTTPS repository URLs',()=>{ assert.equal(validateRepoUrl('https://github.com/example/project.git').hostname,'github.com'); });
@@ -13,14 +13,19 @@ test('rejects hosts outside the allowlist',()=>{ assert.throws(()=>validateRepoU
 
 const session={id:'session',userId:'user',title:'Chat',repoUrl:'https://github.com/example/project.git',branch:'main',agentCount:1,status:'completed',prUrl:'https://github.com/example/project/pull/42',prBranch:'relay/chat-session',createdAt:'',updatedAt:''} satisfies Session;
 
-test('detects when the current pull request has been merged',async()=>{
-  const request=async()=>new Response(JSON.stringify({merged_at:'2026-07-17T12:00:00Z'}),{status:200});
-  assert.equal(await pullRequestIsMerged(session,'token',request as typeof fetch),true);
+test('keeps using the current pull request while it is open',async()=>{
+  const request=async()=>new Response(JSON.stringify({state:'open'}),{status:200});
+  assert.equal(await pullRequestState(session,'token',request as typeof fetch),'open');
 });
 
-test('keeps using an open pull request',async()=>{
-  const request=async()=>new Response(JSON.stringify({merged_at:null}),{status:200});
-  assert.equal(await pullRequestIsMerged(session,'token',request as typeof fetch),false);
+test('replaces a pull request that is no longer open',async()=>{
+  const request=async()=>new Response(JSON.stringify({state:'closed'}),{status:200});
+  assert.equal(await pullRequestState(session,'token',request as typeof fetch),'closed');
+});
+
+test('detects a merged pull request separately from a closed one',async()=>{
+  const request=async()=>new Response(JSON.stringify({state:'closed',merged_at:'2026-07-17T12:00:00Z'}),{status:200});
+  assert.equal(await pullRequestState(session,'token',request as typeof fetch),'merged');
 });
 
 test('warm permission repair fixes source files without scanning dependencies',async()=>{

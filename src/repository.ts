@@ -48,31 +48,34 @@ export async function changedFiles(workspace:string):Promise<string[]>{const out
 
 export async function headRevision(workspace:string):Promise<string>{return command('git',['-c',`safe.directory=${workspace}`,'rev-parse','HEAD'],workspace);}
 
-export async function pullRequestIsMerged(session:Session,githubToken:string,request:typeof fetch=fetch):Promise<boolean>{
-  if(!session.prUrl||!session.repoUrl)return false;
+export async function pullRequestState(session:Session,githubToken:string,request:typeof fetch=fetch):Promise<'open'|'closed'|'merged'>{
+  if(!session.prUrl||!session.repoUrl)return 'closed';
   const repoUrl=validateRepoUrl(session.repoUrl);const prUrl=new URL(session.prUrl);
   const repoParts=repoUrl.pathname.replace(/^\//,'').replace(/\.git$/,'').split('/');const parts=prUrl.pathname.replace(/^\//,'').split('/');const number=parts[3];
-  if(prUrl.hostname!=='github.com'||parts.length!==4||parts[0]!==repoParts[0]||parts[1]!==repoParts[1]||parts[2]!=='pull'||!number||!/^\d+$/.test(number))return false;
+  if(prUrl.hostname!=='github.com'||parts.length!==4||parts[0]!==repoParts[0]||parts[1]!==repoParts[1]||parts[2]!=='pull'||!number||!/^\d+$/.test(number))return 'closed';
   const response=await request(`https://api.github.com/repos/${parts[0]}/${parts[1]}/pulls/${number}`,{headers:{Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'relay-cloud-agent'}});
   if(!response.ok)throw new Error(`GitHub PR lookup failed (${response.status}): ${(await response.text()).slice(0,500)}`);
-  return Boolean((await response.json() as {merged_at?:string|null}).merged_at);
+  const pull=await response.json() as {state?:string;merged_at?:string|null};
+  return pull.merged_at?'merged':pull.state==='open'?'open':'closed';
 }
 
-export async function prepareAgentBranch(session:Session,workspace:string,githubToken?:string|null):Promise<{branch:string;replacedMergedPullRequest:boolean}>{
+export async function prepareAgentBranch(session:Session,workspace:string,githubToken?:string|null):Promise<{branch:string;replacedPullRequest:boolean}>{
   const git=(args:string[])=>command('git',['-c',`safe.directory=${workspace}`,...args],workspace);
-  const merged=Boolean(githubToken&&await pullRequestIsMerged(session,githubToken));
-  if(merged){
+  const pullState=githubToken&&session.prUrl?await pullRequestState(session,githubToken):'open';
+  if(pullState!=='open'){
     const url=validateRepoUrl(session.repoUrl!);const auth=['-c',`http.${url.origin}/.extraHeader=Authorization: Basic ${Buffer.from(`x-access-token:${githubToken}`).toString('base64')}`];
-    let base=session.branch;
-    if(!base){try{base=(await git(['symbolic-ref','refs/remotes/origin/HEAD','--short'])).replace(/^origin\//,'');}catch{base='main';}}
-    await git([...auth,'fetch','origin',base]);
     const branch=`relay/chat-${session.id.slice(0,8)}-${crypto.randomUUID().slice(0,8)}`;
-    await git(['switch','-c',branch,`origin/${base}`]);
-    return {branch,replacedMergedPullRequest:true};
+    if(pullState==='merged'){
+      let base=session.branch;
+      if(!base){try{base=(await git(['symbolic-ref','refs/remotes/origin/HEAD','--short'])).replace(/^origin\//,'');}catch{base='main';}}
+      await git([...auth,'fetch','origin',base]);
+      await git(['switch','-c',branch,`origin/${base}`]);
+    }else await git(['switch','-c',branch]);
+    return {branch,replacedPullRequest:true};
   }
   const branch=session.prBranch||`relay/chat-${session.id.slice(0,8)}`;
   try{await git(['switch',branch]);}catch{await git(['switch','-c',branch]);}
-  return {branch,replacedMergedPullRequest:false};
+  return {branch,replacedPullRequest:false};
 }
 
 export async function makeAgentWritable(workspace:string,includeDependencies=true):Promise<void>{
