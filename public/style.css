@@ -637,24 +637,6 @@ select {
   background: #fafbf9;
 }
 
-.or {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 15px 0 7px;
-  color: #969f99;
-  font-size: 11px;
-  text-transform: uppercase;
-}
-
-.or::before,
-.or::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
-
 .hint {
   padding: 10px 12px;
   border-radius: 8px;

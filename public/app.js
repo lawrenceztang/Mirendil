@@ -480,20 +480,17 @@ async function removeOpenAiKey() {
 }
 
 function renderRepositoryOptions(items) {
-  const select = $('#repoSelect');
-  select.innerHTML = '<option value="">Paste a repository URL below</option>';
+  const options = $('#repoOptions');
+  options.replaceChildren();
   for (const repository of items) {
     const option = document.createElement('option');
     option.value = repository.url;
-    option.textContent = `${repository.private ? 'Private · ' : ''}${repository.name}`;
-    option.dataset.branch = repository.branch;
-    option.dataset.name = repository.name;
-    select.append(option);
+    option.label = `${repository.private ? 'Private · ' : ''}${repository.name}`;
+    options.append(option);
   }
-  select.disabled = false;
   $('#createHint').textContent = items.length
-    ? 'Choose a connected repository or paste an allowed public HTTPS URL.'
-    : 'No repositories were returned. You can still paste an allowed public HTTPS URL.';
+    ? 'Choose a connected repository or enter an allowed public HTTPS URL.'
+    : 'No repositories were returned. Enter an allowed public HTTPS URL.';
 }
 
 async function loadRepositories() {
@@ -505,9 +502,8 @@ async function loadRepositories() {
     repositories = await api('/api/connections/github/repos');
     renderRepositoryOptions(repositories);
   } catch (error) {
-    $('#repoSelect').innerHTML = '<option value="">Repositories unavailable</option>';
-    $('#repoSelect').disabled = true;
-    $('#createHint').textContent = `${error.message}. Paste an allowed public HTTPS URL instead.`;
+    $('#repoOptions').replaceChildren();
+    $('#createHint').textContent = `${error.message}. Enter an allowed public HTTPS URL instead.`;
   }
 }
 
@@ -515,8 +511,7 @@ function openCreateDialog() {
   const form = $('#createForm');
   form.reset();
   setFormError($('#createError'));
-  $('#repoSelect').innerHTML = '<option value="">Loading repositories…</option>';
-  $('#repoSelect').disabled = true;
+  $('#repoOptions').replaceChildren();
   $('#createHint').textContent = 'Loading your recently updated GitHub repositories…';
   $('#create').showModal();
   void loadRepositories();
@@ -571,24 +566,15 @@ $('#sessions').addEventListener('click', event => {
   }
 });
 
-$('#repoSelect').onchange = event => {
-  $('#repoUrl').value = event.target.value;
-  setFormError($('#createError'));
-};
-
-$('#repoUrl').oninput = event => {
-  const selectedOption = $('#repoSelect').selectedOptions[0];
-  if (selectedOption?.value !== event.target.value) $('#repoSelect').value = '';
-  setFormError($('#createError'));
-};
+$('#repoUrl').oninput = () => setFormError($('#createError'));
 
 $('#createForm').onsubmit = async event => {
   event.preventDefault();
   const form = event.currentTarget;
   const repoUrl = String(new FormData(form).get('repoUrl') || '').trim();
-  const option = $('#repoSelect').selectedOptions[0];
-  const branch = option?.value === repoUrl ? option.dataset.branch || '' : '';
-  const title = option?.value === repoUrl ? option.dataset.name || titleForRepository(repoUrl) : titleForRepository(repoUrl);
+  const repository = repositories?.find(item => item.url === repoUrl);
+  const branch = repository?.branch || '';
+  const title = repository?.name || titleForRepository(repoUrl);
   setFormError($('#createError'));
   setFormBusy(form, true, 'Creating chat…');
 
