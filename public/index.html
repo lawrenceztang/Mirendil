@@ -1,7 +1,137 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relay — cloud agent</title><link rel="stylesheet" href="/style.css"></head>
-<body><aside id="sidebar"><div class="brand"><span>R</span> Relay</div><button class="new" id="newSession">＋ New workspace</button><nav id="sessions"><div class="muted">Loading sessions…</div></nav><div class="aside-foot"><i></i> Cloud worker ready</div></aside><button id="sidebarBackdrop" aria-label="Close navigation" tabindex="-1"></button>
-<main><header><div class="header-title"><button id="sidebarToggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button><div><small>WORKSPACE</small><h1 id="title">Choose a workspace</h1></div></div><div id="status"></div></header>
-<section id="empty" class="empty"><div class="orb">R</div><h2>Your agent, still working when you leave</h2><p>Connect a repository, hand off a task, and return to a durable record of every run.</p><button class="primary" onclick="document.querySelector('#newSession').click()">Create a workspace</button></section>
-<section id="chat" class="chat hidden"><div id="timeline" class="timeline"></div><form id="composer"><textarea id="prompt" placeholder="Ask Relay to change, investigate, or test something…" required minlength="1"></textarea><div class="compose-foot"><span><select id="thinkingLevel" aria-label="Thinking level"><option value="">Thinking: default</option><option value="low">Thinking: low</option><option value="medium">Thinking: medium</option><option value="high">Thinking: high</option><option value="xhigh">Thinking: extra high</option></select><kbd>⌘</kbd> <kbd>Enter</kbd> to run</span><button class="primary">Run task <b>↑</b></button></div></form></section></main>
-<dialog id="create"><form method="dialog" id="createForm"><button class="close" value="cancel">×</button><small>NEW WORKSPACE</small><h2>What should Relay work on?</h2><label>Name<input name="title" placeholder="Checkout improvements" required maxlength="100"></label><label>Repository URL <em>optional · public HTTPS</em><input name="repoUrl" type="url" placeholder="https://github.com/org/repo.git"></label><div class="grid"><label>Branch<input name="branch" placeholder="main"></label><label>Parallel agents<select name="agentCount"><option value="1">1 · Focused</option><option value="2">2 · Faster research</option><option value="3">3 · Broad research</option><option value="4">4 · Maximum</option></select></label></div><p class="hint">Parallel agents investigate independently; one lead agent owns edits to avoid merge conflicts.</p><button class="primary wide" value="default">Create workspace</button></form></dialog>
-<script type="module" src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Relay is a durable cloud coding agent that turns repository tasks into reviewed pull requests.">
+    <meta name="theme-color" content="#17201c">
+    <title>Relay — hand off the work</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/layout.css">
+    <link rel="stylesheet" href="/markdown.css">
+  </head>
+  <body>
+    <aside id="sidebar">
+      <button class="brand" id="homeButton" type="button" title="Go home">
+        <span aria-hidden="true">R</span>
+        Relay
+      </button>
+
+      <button class="new hidden" id="newSession" type="button">
+        <span aria-hidden="true">＋</span>
+        New chat
+      </button>
+
+      <nav id="sessions" aria-label="Chats" aria-live="polite">
+        <div class="muted">Checking your account…</div>
+      </nav>
+
+      <div class="account hidden" id="account">
+        <button class="connection" id="openaiConnection" type="button">
+          <i id="modelDot" aria-hidden="true"></i>
+          <span>Checking model…</span>
+        </button>
+        <button class="account-user" id="githubConnection" type="button"></button>
+      </div>
+      <div class="aside-foot"><i aria-hidden="true"></i> Cloud worker ready</div>
+    </aside>
+
+    <button id="sidebarBackdrop" aria-label="Close navigation" tabindex="-1"></button>
+
+    <main>
+      <header>
+        <div class="header-title">
+          <button id="sidebarToggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
+          <div>
+            <small id="contextLabel">RELAY</small>
+            <h1 id="title">Getting things ready</h1>
+          </div>
+        </div>
+        <div id="status" aria-live="polite"></div>
+      </header>
+
+      <section id="empty" class="empty">
+        <div class="orb" aria-hidden="true">R</div>
+        <p class="eyebrow">ASYNCHRONOUS CODING AGENT</p>
+        <h2>Hand off the work. Keep your momentum.</h2>
+        <p class="intro">Connect a repository, describe the outcome, and come back to a durable record and pull request.</p>
+        <div class="home-actions">
+          <button class="primary" id="emptyAction" type="button" disabled>Loading Relay…</button>
+          <button class="secondary hidden" id="emptyModelAction" type="button">Add OpenAI key</button>
+        </div>
+        <div class="workflow" aria-label="How Relay works">
+          <div><strong>01</strong><span>Choose a repo</span></div>
+          <i aria-hidden="true">→</i>
+          <div><strong>02</strong><span>Delegate a task</span></div>
+          <i aria-hidden="true">→</i>
+          <div><strong>03</strong><span>Review the PR</span></div>
+        </div>
+      </section>
+
+      <section id="chat" class="chat hidden">
+        <div id="timeline" class="timeline" role="log" aria-live="polite" aria-relevant="additions"></div>
+        <form id="composer">
+          <div class="model-notice hidden" id="modelNotice">
+            Add an OpenAI API key before running a task.
+            <button type="button">Add key</button>
+          </div>
+          <label class="sr-only" for="prompt">Task for Relay</label>
+          <textarea id="prompt" placeholder="Ask Relay to change, investigate, or test something…" required minlength="1" maxlength="10000"></textarea>
+          <div class="compose-foot">
+            <span>
+              <select id="thinkingLevel" aria-label="Thinking level">
+                <option value="">Thinking: default</option>
+                <option value="low">Thinking: low</option>
+                <option value="medium">Thinking: medium</option>
+                <option value="high">Thinking: high</option>
+                <option value="xhigh">Thinking: extra high</option>
+              </select>
+              <span class="shortcut"><kbd>⌘</kbd><kbd>Enter</kbd> to run</span>
+            </span>
+            <button class="primary" id="runButton" type="submit">Run task <b aria-hidden="true">↑</b></button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <dialog id="create">
+      <form id="createForm">
+        <button class="close" type="button" aria-label="Close">×</button>
+        <small>NEW CHAT</small>
+        <h2>Start with a repository</h2>
+
+        <label for="repoSelect">Your GitHub repositories</label>
+        <select id="repoSelect" disabled>
+          <option value="">Loading repositories…</option>
+        </select>
+
+        <div class="or"><span>or</span></div>
+
+        <label for="repoUrl">
+          Repository URL
+          <em>HTTPS</em>
+        </label>
+        <input id="repoUrl" name="repoUrl" type="url" placeholder="https://github.com/org/repo.git" required autocomplete="url">
+        <p class="hint" id="createHint">Choose a connected repository or paste an allowed public HTTPS URL.</p>
+        <p class="form-error hidden" id="createError" role="alert"></p>
+        <button class="primary wide" type="submit">Create chat</button>
+      </form>
+    </dialog>
+
+    <dialog id="modelDialog">
+      <form id="modelForm">
+        <button class="close" type="button" aria-label="Close">×</button>
+        <small>MODEL CONNECTION</small>
+        <h2>Add your OpenAI API key</h2>
+        <label for="openaiKey">API key</label>
+        <input id="openaiKey" name="key" type="password" autocomplete="off" placeholder="sk-…" required minlength="20" maxlength="500">
+        <p class="hint">Encrypted at rest and supplied only to your isolated Codex runs. Relay never displays it again.</p>
+        <p class="form-error hidden" id="modelError" role="alert"></p>
+        <button class="primary wide" type="submit">Save key</button>
+      </form>
+    </dialog>
+
+    <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
