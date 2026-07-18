@@ -1,6 +1,30 @@
-# Relay setup
+# Relay
 
-## Prerequisites
+Relay is a durable cloud coding agent that turns repository tasks into reviewable pull requests. Connect a GitHub repository, describe an outcome, and follow the work as Relay inspects the codebase, makes changes in an isolated container, runs checks, and publishes the result.
+
+## What Relay does
+
+- Keeps each chat scoped to a GitHub repository.
+- Runs coding tasks in isolated Docker containers.
+- Streams progress and results to the browser in real time.
+- Reuses chat context across follow-up tasks.
+- Runs repository checks before presenting the result.
+- Creates or updates pull requests with completed work.
+- Encrypts stored OpenAI credentials and never displays them again.
+
+## How it works
+
+The Fastify web service handles authentication, chat sessions, and the browser UI. PostgreSQL stores durable session and run state. Workers claim queued runs and launch the agent runtime inside Docker, with a persistent Codex volume for each chat. GitHub OAuth provides repository access, while server-sent events deliver live activity to the frontend.
+
+```text
+Browser → Fastify API → PostgreSQL queue → Worker → Isolated agent container
+   ↑                                                          │
+   └──────────── live activity and pull-request result ────────┘
+```
+
+## Local setup
+
+### Prerequisites
 
 - Docker with Docker Compose
 - Git
@@ -8,7 +32,7 @@
 - A GitHub OAuth App
 - Node.js 20 or newer for non-Docker development
 
-## 1. Configure the repository
+### 1. Configure the repository
 
 ```bash
 git clone https://github.com/lawrenceztang/Mirendil
@@ -34,7 +58,7 @@ GITHUB_CLIENT_SECRET=YOUR_OAUTH_CLIENT_SECRET
 
 Copy the Session pooler URL from **Supabase → Connect** and replace its password placeholder with the project database password.
 
-## 2. Configure GitHub OAuth
+### 2. Configure GitHub OAuth
 
 Create an OAuth App at <https://github.com/settings/developers> with:
 
@@ -48,7 +72,7 @@ http://localhost:3000/api/connections/github/callback
 
 Copy its client ID and client secret into `.env`.
 
-## 3. Build and start with Docker
+### 3. Build and start with Docker
 
 ```bash
 mkdir -p .relay/workspaces
@@ -76,7 +100,7 @@ Repository: https://github.com/fastify/fastify-example.git
 Request: Add a concise CONTRIBUTING.md for first-time contributors.
 ```
 
-## 4. Run without the web/worker Compose containers
+### 4. Run without the web/worker Compose containers
 
 Docker must still be running because workers launch agent containers.
 
@@ -93,13 +117,13 @@ In another terminal:
 npm run dev:worker
 ```
 
-## 5. Verify the repository
+### 5. Verify the repository
 
 ```bash
 npm run verify
 ```
 
-## 6. Stop or rebuild
+### 6. Stop or rebuild
 
 Stop local services without deleting persistent volumes:
 
