@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Relay is a durable cloud coding agent that turns repository tasks into reviewed pull requests.">
+    <meta name="description" content="Relay cloud coding agent.">
     <meta name="theme-color" content="#17201c">
-    <title>Relay — hand off the work</title>
+    <title>Relay</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="/layout.css">
     <link rel="stylesheet" href="/markdown.css">
@@ -33,7 +33,6 @@
         </button>
         <button class="account-user" id="githubConnection" type="button"></button>
       </div>
-      <div class="aside-foot"><i aria-hidden="true"></i> Cloud worker ready</div>
     </aside>
 
     <button id="sidebarBackdrop" aria-label="Close navigation" tabindex="-1"></button>
@@ -43,28 +42,18 @@
         <div class="header-title">
           <button id="sidebarToggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
           <div>
-            <small id="contextLabel">RELAY</small>
-            <h1 id="title">Getting things ready</h1>
+            <h1 id="title">Relay</h1>
           </div>
         </div>
         <div id="status" aria-live="polite"></div>
       </header>
 
       <section id="empty" class="empty">
-        <div class="orb" aria-hidden="true">R</div>
-        <p class="eyebrow">ASYNCHRONOUS CODING AGENT</p>
-        <h2>Hand off the work. Keep your momentum.</h2>
-        <p class="intro">Connect a repository, describe the outcome, and come back to a durable record and pull request.</p>
+        <h2>Loading…</h2>
+        <p class="intro hidden"></p>
         <div class="home-actions">
           <button class="primary" id="emptyAction" type="button" disabled>Loading Relay…</button>
           <button class="secondary hidden" id="emptyModelAction" type="button">Add OpenAI key</button>
-        </div>
-        <div class="workflow" aria-label="How Relay works">
-          <div><strong>01</strong><span>Choose a repo</span></div>
-          <i aria-hidden="true">→</i>
-          <div><strong>02</strong><span>Delegate a task</span></div>
-          <i aria-hidden="true">→</i>
-          <div><strong>03</strong><span>Review the PR</span></div>
         </div>
       </section>
 
