@@ -151,15 +151,6 @@ header {
     max-width: 88%;
   }
 
-  .workflow {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .workflow i {
-    display: none;
-  }
-
   .shortcut {
     display: none;
   }

@@ -88,8 +88,7 @@ textarea:disabled {
   text-align: left;
 }
 
-.brand span,
-.orb {
+.brand span {
   display: inline-grid;
   place-items: center;
   width: 32px;
@@ -209,8 +208,7 @@ textarea:disabled {
   color: var(--ink);
 }
 
-.connection i,
-.aside-foot i {
+.connection i {
   display: inline-block;
   flex: none;
   width: 7px;
@@ -220,19 +218,12 @@ textarea:disabled {
   background: #9aa19c;
 }
 
-.connection i.connected,
-.aside-foot i {
+.connection i.connected {
   background: #3b946c;
 }
 
 .connection i.attention {
   background: #d5942f;
-}
-
-.aside-foot {
-  padding: 9px 12px 0;
-  color: var(--muted);
-  font-size: 11px;
 }
 
 header {
@@ -254,8 +245,7 @@ header {
   min-width: 0;
 }
 
-small,
-.eyebrow {
+small {
   color: var(--muted);
   font-size: 10px;
   font-weight: 750;
@@ -307,37 +297,22 @@ h1 {
 }
 
 .empty {
-  width: min(680px, calc(100% - 40px));
+  width: min(480px, calc(100% - 40px));
   margin: auto;
   padding: 54px 0;
   text-align: center;
 }
 
-.empty .orb {
-  width: 54px;
-  height: 54px;
-  margin: 0 auto 24px;
-  border-radius: 17px;
-  box-shadow: 0 12px 34px rgb(23 32 28 / 20%);
-  font: 600 23px Georgia, serif;
-}
-
-.empty .eyebrow {
-  margin: 0 0 8px;
-}
-
 .empty h2 {
-  max-width: 600px;
-  margin: 0 auto 11px;
-  font: 500 clamp(30px, 4vw, 42px)/1.1 Georgia, serif;
+  margin: 0 auto 24px;
+  font: 500 30px/1.2 Georgia, serif;
   letter-spacing: -0.02em;
 }
 
 .empty .intro {
-  max-width: 550px;
-  margin: 0 auto 26px;
+  margin: -12px auto 24px;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .home-actions {
@@ -383,38 +358,6 @@ h1 {
 
 .secondary.connected {
   color: var(--green);
-}
-
-.workflow {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  align-items: center;
-  max-width: 610px;
-  margin: 48px auto 0;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-}
-
-.workflow div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.workflow strong {
-  color: var(--green);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-}
-
-.workflow span {
-  font-size: 12px;
-}
-
-.workflow i {
-  color: #adb5af;
-  font-style: normal;
 }
 
 .timeline {

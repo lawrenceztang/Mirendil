@@ -330,7 +330,6 @@ async function openSession(id) {
   markActiveSession();
   $('#empty').classList.add('hidden');
   $('#chat').classList.remove('hidden');
-  $('#contextLabel').textContent = 'CHAT';
   $('#title').textContent = 'Loading chat…';
   $('#status').innerHTML = '';
   $('#timeline').innerHTML = '<div class="timeline-loading">Loading the conversation…</div>';
@@ -372,10 +371,16 @@ function goHome(updateHistory = true) {
   if (updateHistory) history.pushState(null, '', location.pathname);
   $('#chat').classList.add('hidden');
   $('#empty').classList.remove('hidden');
-  $('#contextLabel').textContent = currentUser ? 'HOME' : 'RELAY';
-  $('#title').textContent = currentUser ? 'Your workspace' : 'Relay';
+  $('#title').textContent = 'Relay';
   $('#status').innerHTML = '';
   markActiveSession();
+}
+
+function setEmptyState(title, message = '') {
+  $('#empty h2').textContent = title;
+  const intro = $('#empty .intro');
+  intro.textContent = message;
+  intro.classList.toggle('hidden', !message);
 }
 
 function connectGitHub() {
@@ -417,11 +422,9 @@ function showSignedOut() {
   $('#account').classList.add('hidden');
   $('#emptyModelAction').classList.add('hidden');
   $('#sessions').innerHTML = '<div class="muted">Sign in to view your chats.</div>';
-  $('#contextLabel').textContent = 'RELAY';
-  $('#title').textContent = 'Welcome';
+  $('#title').textContent = 'Relay';
   $('#status').innerHTML = '';
-  $('#empty h2').textContent = 'Your agent, still working when you leave.';
-  $('#empty .intro').textContent = 'Continue with GitHub to connect a repository and keep every task, update, and pull request in one durable chat.';
+  setEmptyState('Sign in to Relay');
   const action = $('#emptyAction');
   action.disabled = false;
   action.textContent = 'Continue with GitHub';
@@ -435,10 +438,8 @@ function showSignedIn(user) {
   $('#account').classList.remove('hidden');
   $('#emptyModelAction').classList.remove('hidden');
   $('#githubConnection').textContent = `@${user.login} · Sign out`;
-  $('#empty h2').textContent = 'Hand off the work. Keep your momentum.';
-  $('#empty .intro').textContent = 'Connect a repository, describe the outcome, and come back to a durable record and pull request.';
-  $('#contextLabel').textContent = 'HOME';
-  $('#title').textContent = 'Your workspace';
+  setEmptyState('Start a chat');
+  $('#title').textContent = 'Relay';
 
   const action = $('#emptyAction');
   action.disabled = false;
@@ -542,10 +543,8 @@ async function bootstrap() {
       showSignedOut();
       return;
     }
-    $('#contextLabel').textContent = 'RELAY';
     $('#title').textContent = 'Connection problem';
-    $('#empty h2').textContent = 'Relay could not finish loading.';
-    $('#empty .intro').textContent = error.message;
+    setEmptyState('Relay could not finish loading', error.message);
     const action = $('#emptyAction');
     action.disabled = false;
     action.textContent = 'Try again';
