@@ -12,3 +12,7 @@ nav{scrollbar-gutter:stable}
 .step p{color:#68736c;line-height:1.45;margin-top:3px;overflow-wrap:anywhere}
 .compose-foot span{display:flex;align-items:center;gap:6px}
 .compose-foot select{display:inline-block;width:auto;margin:0;padding:5px 7px;font-size:11px}
+#status{display:flex;align-items:center;gap:10px}
+.pr-action{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:var(--green);color:#fff;text-decoration:none;font-weight:650;box-shadow:0 4px 14px #1c6b4b26}
+.pr-action:hover{background:#15563c}
+.run-pr{margin-top:12px}
