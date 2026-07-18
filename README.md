@@ -1,14 +1,65 @@
-# Relay setup
+# ***Relay is in production at http://98.90.195.242:3000/***
 
-## Prerequisites
+# Run Relay on macOS
 
-- Docker with Docker Compose
-- Git
-- A Supabase project
-- A GitHub OAuth App
-- Node.js 20 or newer for non-Docker development
+## 1. Install Git and Docker
 
-## 1. Configure the repository
+```bash
+xcode-select --install
+```
+
+Install and open [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Wait until Docker reports that the engine is running.
+
+Verify the commands available on your Mac:
+
+```bash
+git --version
+docker --version
+docker-compose version || docker compose version
+docker run --rm hello-world
+```
+
+These instructions use `docker-compose`. If only `docker compose version` works on your Mac, replace `docker-compose` with `docker compose` in the commands below.
+
+## 2. Create a GitHub OAuth App
+
+1. Open [https://github.com/settings/developers](https://github.com/settings/developers).
+2. Select **OAuth Apps → New OAuth App**.
+3. Enter:
+
+```text
+Application name: Relay local
+Homepage URL: http://localhost:3000
+Authorization callback URL: http://localhost:3000/api/connections/github/callback
+```
+
+1. Select **Register application**.
+2. Generate a client secret.
+3. Save the client ID and client secret.
+
+
+
+## 3. Create the Supabase database
+
+1. Open [https://supabase.com/dashboard](https://supabase.com/dashboard) and select **New project**.
+2. Choose a project name, region, and database password.
+3. Wait for the project to finish provisioning.
+4. Select **Connect → Session pooler**.
+5. Copy the PostgreSQL URL that uses port `5432`.
+6. Replace `[YOUR-PASSWORD]` with the project database password.
+7. Save the completed URL.
+
+
+
+## 4. Create an OpenAI API key
+
+1. Configure API billing at [https://platform.openai.com/settings/organization/billing](https://platform.openai.com/settings/organization/billing).
+2. Open [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+3. Select **Create new secret key** and save it.
+
+
+
+## 5. Clone and configure Relay
 
 ```bash
 git clone https://github.com/lawrenceztang/Mirendil
@@ -17,107 +68,55 @@ cp .env.example .env
 openssl rand -hex 32
 ```
 
-Open `.env` and configure:
+Put the generated key and saved credentials into `.env`:
 
 ```env
 PUBLIC_URL=http://localhost:3000
-
-SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-SUPABASE_PASSWORD=YOUR_DATABASE_PASSWORD
-SUPABASE_DATABASE_URL=YOUR_SESSION_POOLER_URL
-
+SUPABASE_DATABASE_URL=YOUR_COMPLETED_SESSION_POOLER_URL
 MASTER_KEY=OUTPUT_FROM_OPENSSL
-
 GITHUB_CLIENT_ID=YOUR_OAUTH_CLIENT_ID
 GITHUB_CLIENT_SECRET=YOUR_OAUTH_CLIENT_SECRET
 ```
 
-Copy the Session pooler URL from **Supabase → Connect** and replace its password placeholder with the project database password.
 
-## 2. Configure GitHub OAuth
 
-Create an OAuth App at <https://github.com/settings/developers> with:
-
-```text
-Homepage URL:
-http://localhost:3000
-
-Authorization callback URL:
-http://localhost:3000/api/connections/github/callback
-```
-
-Copy its client ID and client secret into `.env`.
-
-## 3. Build and start with Docker
+## 6. Build the Codex agent
 
 ```bash
 mkdir -p .relay/workspaces
 docker build -f Dockerfile.agent -t relay-agent:latest .
-docker compose up -d --build
 ```
 
-If the Compose plugin is unavailable, replace `docker compose` with `docker-compose`.
 
-Check startup:
+
+## 7. Create the Supabase schema
+
+Run Relay's ordered SQL migrations against the configured Supabase database:
 
 ```bash
-docker compose ps
-docker compose logs --tail=100 migrate web worker
+docker-compose run --rm --build migrate
 ```
 
-The migration container should exit successfully. The web container and three workers should remain running.
+The first run prints `Applied 001_initial.sql` followed by the remaining migration names. Later runs are safe and exit without reapplying completed migrations.
 
-Open <http://localhost:3000>, sign in with GitHub, and add your OpenAI API key from the home page.
+## 8. Start Relay
 
-Try:
+```bash
+docker-compose up -d --build web worker
+docker-compose ps
+docker-compose logs --tail=100 web worker
+```
+
+The web container and three worker containers should show `Up`. Each worker log should end in `ready`.
+
+## 9. Run a task
+
+1. Open [http://localhost:3000](http://localhost:3000).
+2. Sign in with GitHub.
+3. Enter the OpenAI API key from step 4.
+4. Select a GitHub repository that the signed-in account can push to. Relay needs write access to create branches and pull requests.
+5. Start a chat with:
 
 ```text
-Repository: https://github.com/fastify/fastify-example.git
-Request: Add a concise CONTRIBUTING.md for first-time contributors.
+Add a concise CONTRIBUTING.md for first-time contributors.
 ```
-
-## 4. Run without the web/worker Compose containers
-
-Docker must still be running because workers launch agent containers.
-
-```bash
-npm ci
-docker build -f Dockerfile.agent -t relay-agent:latest .
-npm run db:migrate
-npm run dev
-```
-
-In another terminal:
-
-```bash
-npm run dev:worker
-```
-
-## 5. Verify the repository
-
-```bash
-npm run verify
-```
-
-## 6. Stop or rebuild
-
-Stop local services without deleting persistent volumes:
-
-```bash
-docker compose down
-```
-
-Rebuild after application changes:
-
-```bash
-docker compose up -d --build --force-recreate web worker
-```
-
-Rebuild the agent after changing `Dockerfile.agent` or `agent-runtime/`:
-
-```bash
-docker build -f Dockerfile.agent -t relay-agent:latest .
-docker compose up -d --build --force-recreate worker
-```
-
-For AWS EC2 setup, HTTPS, OAuth production URLs, disk recovery, and EBS resizing, follow [CLOUD_SETUP.md](CLOUD_SETUP.md).

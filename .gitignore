@@ -1,7 +1,9 @@
 node_modules/
+dist/
 .relay/
 *.zip
 .DS_Store
 coverage/
 .env
-.env.prod
+.env.*
+!.env.example

@@ -3,7 +3,7 @@ RUN apk add --no-cache git github-cli bash ca-certificates \
   && npm install --global @openai/codex@0.144.1
 RUN addgroup -S agent && adduser -S -u 10001 -G agent agent
 WORKDIR /runner
-COPY agent-runtime/run.js ./run.js
+COPY agent-runtime/run.js agent-runtime/instructions.js ./
 RUN mkdir -p /workspace /repo-output /home/agent/.codex && chown -R 10001:agent /workspace /repo-output /home/agent/.codex
 USER agent
 RUN git config --global --add safe.directory /workspace

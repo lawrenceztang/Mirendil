@@ -6,6 +6,11 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { agentInstructions } from '../agent-runtime/instructions.js';
 
+test('agent image includes every runtime module',async()=>{
+  const dockerfile=await fs.readFile(path.resolve('Dockerfile.agent'),'utf8');
+  assert.match(dockerfile,/COPY agent-runtime\/run\.js agent-runtime\/instructions\.js \.\//);
+});
+
 test('starts a fresh branch when the current pull request is no longer open',()=>{
   assert.match(agentInstructions,/pull request is merged or closed/);
   assert.match(agentInstructions,/create a fresh branch from the updated base/);
