@@ -89,19 +89,13 @@
         <small>NEW CHAT</small>
         <h2>Start with a repository</h2>
 
-        <label for="repoSelect">Your GitHub repositories</label>
-        <select id="repoSelect" disabled>
-          <option value="">Loading repositories…</option>
-        </select>
-
-        <div class="or"><span>or</span></div>
-
         <label for="repoUrl">
-          Repository URL
+          Repository
           <em>HTTPS</em>
         </label>
-        <input id="repoUrl" name="repoUrl" type="url" placeholder="https://github.com/org/repo.git" required autocomplete="url">
-        <p class="hint" id="createHint">Choose a connected repository or paste an allowed public HTTPS URL.</p>
+        <input id="repoUrl" name="repoUrl" type="url" list="repoOptions" placeholder="Choose a repository or enter its URL" required autocomplete="url" aria-describedby="createHint createError">
+        <datalist id="repoOptions"></datalist>
+        <p class="hint" id="createHint">Choose a connected repository or enter an allowed public HTTPS URL.</p>
         <p class="form-error hidden" id="createError" role="alert"></p>
         <button class="primary wide" type="submit">Create chat</button>
       </form>
