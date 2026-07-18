@@ -12,6 +12,8 @@ export function validateRepoUrl(raw: string): URL {
   return url;
 }
 
+export function remoteBranchRefspec(branch:string):string{return `+refs/heads/${branch}:refs/remotes/origin/${branch}`;}
+
 export function command(command: string, args: string[], cwd: string, timeout = 120_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, shell: false, stdio: ['ignore','pipe','pipe'] });
@@ -29,7 +31,7 @@ export async function ensureWorkspace(session: Session, githubToken?: string | n
     if(session.prBranch){
       const safe=['-c',`safe.directory=${dir}`];
       try{await command('git',[...safe,'switch',session.prBranch],dir);}
-      catch{const url=validateRepoUrl(session.repoUrl!);const auth=githubToken?['-c',`http.${url.origin}/.extraHeader=Authorization: Basic ${Buffer.from(`x-access-token:${githubToken}`).toString('base64')}`]:[];await command('git',[...safe,...auth,'fetch','origin',session.prBranch],dir);await command('git',[...safe,'switch','-c',session.prBranch,'--track',`origin/${session.prBranch}`],dir);}
+      catch{const url=validateRepoUrl(session.repoUrl!);const auth=githubToken?['-c',`http.${url.origin}/.extraHeader=Authorization: Basic ${Buffer.from(`x-access-token:${githubToken}`).toString('base64')}`]:[];await command('git',[...safe,...auth,'fetch','origin',remoteBranchRefspec(session.prBranch)],dir);await command('git',[...safe,'switch','-c',session.prBranch,`refs/remotes/origin/${session.prBranch}`],dir);}
     }
     return dir;
   }

@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { makeAgentWritable, pullRequestState, validateRepoUrl } from '../src/repository.js';
+import { makeAgentWritable, pullRequestState, remoteBranchRefspec, validateRepoUrl } from '../src/repository.js';
 import type { Session } from '../src/types.js';
 
 test('accepts allowlisted HTTPS repository URLs',()=>{ assert.equal(validateRepoUrl('https://github.com/example/project.git').hostname,'github.com'); });
 test('rejects unsafe repository protocols',()=>{ assert.throws(()=>validateRepoUrl('ssh://github.com/example/project.git'),/Only HTTPS/); assert.throws(()=>validateRepoUrl('file:///etc/passwd'),/Only HTTPS/); });
 test('rejects embedded credentials',()=>{ assert.throws(()=>validateRepoUrl('https://token@github.com/example/project.git'),/credentials/); });
 test('rejects hosts outside the allowlist',()=>{ assert.throws(()=>validateRepoUrl('https://example.com/repository.git'),/Only HTTPS/); });
+test('fetches chat branches into an explicit remote-tracking reference',()=>{assert.equal(remoteBranchRefspec('relay/chat-session'),'+refs/heads/relay/chat-session:refs/remotes/origin/relay/chat-session');});
 
 const session={id:'session',userId:'user',title:'Chat',repoUrl:'https://github.com/example/project.git',branch:'main',agentCount:1,status:'completed',prUrl:'https://github.com/example/project/pull/42',prBranch:'relay/chat-session',createdAt:'',updatedAt:''} satisfies Session;
 
