@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import crypto from 'node:crypto';
+import { agentInstructions } from './instructions.js';
 
 const task=process.env.TASK||'Inspect the repository';
 const root=process.env.WORKSPACE_ROOT||'/workspace';
@@ -97,7 +98,7 @@ if(!authenticated){await new Promise((resolve,reject)=>{
 delete codexEnv.OPENAI_API_KEY;
 const threadMarker=path.join(codexHome,'.relay-thread-started');
 let continuing=false;try{await fs.access(threadMarker);continuing=true;}catch{}
-const instructions=`Relay provides the execution environment but does not choose or switch Git branches. You own Git and pull-request decisions. First inspect the current branch, status, and relevant remote/PR state without discarding uncommitted work. If the user asks only a question, inspect as needed and answer without changing files. For a repository change, choose an appropriate branch yourself; do not push directly to the repository's default branch unless the user explicitly asks. Preserve and reconcile existing work, make the smallest complete change, run relevant checks, commit, and push. Use the GitHub CLI to update an open pull request for your branch or create one when appropriate. Publish each coherent completed change by default. Finish with a concise text response addressed directly to the user, separate from Git and PR delivery.`;
+const instructions=agentInstructions;
 const prompt=continuing?`Continue the existing Relay chat.\n\nNew user request: ${task}\n\n${instructions}`:`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\n${instructions}`;
 const args=continuing?['exec','resume','--last','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--output-last-message',finalMessage]:['exec','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--color','never','--output-last-message',finalMessage,'--cd',root];
 if(process.env.CODEX_MODEL)args.push('--model',process.env.CODEX_MODEL);

@@ -4,6 +4,13 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { agentInstructions } from '../agent-runtime/instructions.js';
+
+test('starts a fresh branch when the current pull request is no longer open',()=>{
+  assert.match(agentInstructions,/pull request is merged or closed/);
+  assert.match(agentInstructions,/create a fresh branch from the updated base/);
+  assert.match(agentInstructions,/do not reuse the closed pull-request branch/);
+});
 
 test('demo runtime leaves the repository unchanged without a model key',async()=>{
   const base=await fs.mkdtemp(path.join(os.tmpdir(),'relay-runtime-'));const input=path.join(base,'input'),workspace=path.join(base,'workspace'),agentOutput=path.join(base,'output');await fs.mkdir(input);await fs.mkdir(workspace);await fs.mkdir(agentOutput);await fs.mkdir(path.join(input,'.git'));await fs.writeFile(path.join(input,'.git','config'),'secret metadata');await fs.writeFile(path.join(input,'hello.txt'),'hello');await fs.chmod(path.join(input,'hello.txt'),0o444);
