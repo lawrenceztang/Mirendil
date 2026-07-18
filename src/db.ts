@@ -47,7 +47,36 @@ export const db = {
   async setPullRequest(runId: string, prUrl: string): Promise<void> { await pool.query(`UPDATE runs SET pr_url=$2 WHERE id=$1`,[runId,prUrl]); },
   async setSessionPullRequest(sessionId:string,prUrl:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=$2,pr_branch=$3,updated_at=now() WHERE id=$1`,[sessionId,prUrl,prBranch]);},
   async setSessionBranch(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=CASE WHEN pr_branch=$2 THEN pr_url ELSE null END,pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
-  async requestCancel(runId: string): Promise<void> { await pool.query(`UPDATE runs SET cancel_requested=true WHERE id=$1 AND status IN ('queued','running')`, [runId]); },
+  async requestCancel(runId: string): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query<{session_id:string;status:string}>(`UPDATE runs
+        SET cancel_requested=true,
+            status=CASE WHEN status='queued' THEN 'cancelled'::run_status ELSE status END,
+            finished_at=CASE WHEN status='queued' THEN now() ELSE finished_at END
+        WHERE id=$1 AND status IN ('queued','running')
+        RETURNING session_id,status`,[runId]);
+      const cancelled=result.rows[0];
+      if(cancelled?.status==='cancelled'){
+        await client.query(`INSERT INTO events(run_id,kind,title,detail) VALUES($1,'status','Run cancelled','Cancelled before a worker started the task')`,[runId]);
+        await client.query(`UPDATE sessions SET
+          status=CASE
+            WHEN EXISTS (SELECT 1 FROM runs WHERE session_id=$1 AND status='running') THEN 'running'::session_status
+            WHEN EXISTS (SELECT 1 FROM runs WHERE session_id=$1 AND status='queued') THEN 'queued'::session_status
+            ELSE 'cancelled'::session_status
+          END,
+          updated_at=now()
+          WHERE id=$1`,[cancelled.session_id]);
+      }
+      await client.query('COMMIT');
+    } catch(error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
   async leaseRun(workerId: string): Promise<Run | null> {
     const result = await pool.query(leaseRunSql,[workerId]);
     if (result.rows[0]) await pool.query(`UPDATE sessions SET status='running',updated_at=now() WHERE id=$1`, [result.rows[0].sessionId]);

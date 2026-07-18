@@ -1,18 +1,189 @@
-html,body{height:100%;overflow:hidden}
-aside,main,.chat,nav,.timeline{min-height:0}
-aside,main{height:100vh;overflow:hidden}
-nav,.timeline{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
-nav{scrollbar-gutter:stable}
-.timeline{scrollbar-gutter:stable both-edges}
-.chat{width:100%;max-width:none;flex:1;padding:0 28px}
-.steps{border-left:0;margin:14px 0 0 42px;padding:0}
-.step{padding:7px 12px;border-left:2px solid var(--line)}
-.step:before{left:-5px;top:13px;width:8px;height:8px}
-.step strong{display:block;line-height:1.4}
-.step p{color:#68736c;line-height:1.45;margin-top:3px;overflow-wrap:anywhere}
-.compose-foot span{display:flex;align-items:center;gap:6px}
-.compose-foot select{display:inline-block;width:auto;margin:0;padding:5px 7px;font-size:11px}
-#status{display:flex;align-items:center;gap:10px}
-.pr-action{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:var(--green);color:#fff;text-decoration:none;font-weight:650;box-shadow:0 4px 14px #1c6b4b26}
-.pr-action:hover{background:#15563c}
-.run-pr{margin-top:12px}
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+}
+
+#sidebar,
+main,
+.chat,
+#sessions,
+.timeline {
+  min-height: 0;
+}
+
+#sidebar,
+main {
+  height: 100vh;
+  overflow: hidden;
+}
+
+#sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+#sessions,
+.timeline {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+#sessions {
+  flex: 1;
+  scrollbar-gutter: stable;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+}
+
+.timeline {
+  flex: 1;
+  scrollbar-gutter: stable both-edges;
+}
+
+#composer {
+  position: sticky;
+  bottom: 24px;
+  flex: none;
+}
+
+#sidebarToggle,
+#sidebarBackdrop {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  body {
+    display: block;
+  }
+
+  #sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    display: flex;
+    width: min(270px, 86vw);
+    transform: translateX(-100%);
+    box-shadow: 8px 0 30px rgb(23 32 28 / 18%);
+    transition: transform 180ms ease;
+  }
+
+  body.sidebar-open #sidebar {
+    transform: translateX(0);
+  }
+
+  #sidebarToggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: white;
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 19px;
+  }
+
+  #sidebarBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgb(23 32 28 / 45%);
+  }
+
+  body.sidebar-open #sidebarBackdrop {
+    display: block;
+  }
+
+  header {
+    padding: 0 16px;
+  }
+
+  #status .badge {
+    display: none;
+  }
+
+  #status .pr-action {
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
+  .timeline {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  #composer {
+    width: calc(100% - 24px);
+    margin-bottom: 12px;
+  }
+
+  .prompt-card {
+    max-width: 88%;
+  }
+
+  .workflow {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .workflow i {
+    display: none;
+  }
+
+  .shortcut {
+    display: none;
+  }
+}
+
+@media (max-width: 460px) {
+  .home-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .compose-foot > span {
+    min-width: 0;
+  }
+
+  .compose-foot select {
+    max-width: 140px;
+  }
+
+  .run-steps {
+    margin-left: 0;
+  }
+
+  dialog form {
+    padding: 26px 22px;
+  }
+}

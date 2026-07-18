@@ -1,49 +1,59 @@
 # Relay
 
-Relay is a small cloud coding agent: create a durable chat from a Git repository, ask a question or queue a coding task, close the tab, and return later to its event history, answer, or pull request. Each chat keeps a resource-limited Docker container for subsequent runs; Relay replaces it when the workspace needs a fresh container. Question-only runs leave the repository unchanged and do not create a pull request.
+Relay is a durable cloud coding agent. Connect a repository, describe the outcome, and move on; Relay keeps the workspace and conversation alive so you can return to a clear activity trail, answer, or pull request.
+
+- **Fast handoff:** choose one of your GitHub repositories and start a task in a few clicks.
+- **Durable context:** each chat keeps its workspace, dependencies, and Codex conversation between runs.
+- **Clear delivery:** live activity, cancellation, summaries, branch state, and pull requests stay attached to the chat.
+- **Safe questions:** question-only runs leave the repository unchanged and do not create a pull request.
 
 ## Quick start
 
-Prerequisites: Docker Desktop with Compose, a Supabase project, and Node.js 22 (for local development).
+Prerequisites: Docker Desktop with Compose, a Supabase project, and Node.js 20 or newer for local development.
 
 ```bash
 cp .env.example .env
 # Set SUPABASE_URL, SUPABASE_PASSWORD, and the pooler host from Supabase > Connect
 docker build -f Dockerfile.agent -t relay-agent:latest .
 mkdir -p .relay/workspaces
-docker-compose up --build
+docker compose up --build
 ```
 
-Open <http://localhost:3000> and continue with GitHub. GitHub OAuth is both the Relay login and repository authorization: users only receive their own chats, runs, artifacts, and accessible repositories. Each user adds their own OpenAI API key from Home; without one, runs use the safe demo path.
+Open <http://localhost:3000>, continue with GitHub, and add an OpenAI API key when prompted. GitHub OAuth is both the Relay login and repository authorization: users only receive their own chats, runs, artifacts, and accessible repositories.
 
 Example:
 
-1. Create workspace “Fastify sample”.
-2. Use `https://github.com/fastify/fastify-example.git` (or leave the repository blank).
-3. Request: `Inspect this project and add a concise CONTRIBUTING.md for first-time contributors.`
-4. Leave the page, return to the session URL, and open the pull request.
+1. Select **Start a chat** and choose `fastify/fastify-example` (or paste its HTTPS URL).
+2. Request: `Inspect this project and add a concise CONTRIBUTING.md for first-time contributors.`
+3. Leave the page, return to the chat URL, and open the pull request from the completed run.
 
 > Docker Desktop detail: the child run container is created through the host Docker socket. Compose therefore mounts `.relay/workspaces` at the same absolute path inside the worker and on the host. Run Compose from this repository directory; do not relocate it while runs are active.
 
 ## Local development
 
-Set the Supabase values in `.env`, export them for local processes, then start the API and worker:
+Set the Supabase values in `.env`, then start the API and worker:
 
 ```bash
-npm install
+npm ci
 npm run db:migrate
 npm run dev
 # another terminal
 npm run dev:worker
 ```
 
-Useful checks:
+Run the complete local verification suite:
 
 ```bash
-npm run check
-npm test
-npm run build
+npm run verify
 ```
+
+## Repository map
+
+- `src/` — Fastify API, queue, repository, and container orchestration
+- `agent-runtime/` — the isolated Codex entrypoint used inside each chat container
+- `public/` — dependency-free Relay web interface
+- `sql/` — ordered Postgres migrations
+- `test/` — Node test suite for auth, queueing, repository safety, and runtime behavior
 
 ## Services and configuration
 
