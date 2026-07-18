@@ -36,7 +36,7 @@ Each queue worker owns one run at a time and launches one Codex agent container.
 
 The API and worker are separate entry points but share strict TypeScript domain/database modules. Fastify offers a small, typed HTTP surface. Zod validates data at trust boundaries. SQL is explicit because the lease query is central behavior worth seeing and reviewing. The frontend is dependency-free JavaScript/CSS to keep the submission focused on the cloud-agent system.
 
-The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, verification, commits, pushes, and pull-request delivery. Codex bypasses inner approval prompts because the disposable container and chat-scoped repository mount are the outer security boundary. The host observes and records the pull request but does not publish repository changes itself. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
+The runtime uses non-interactive `codex exec`, allowing iterative repository inspection, edits, verification, branch selection, commits, pushes, and pull-request delivery. Relay does not switch branches after the initial clone; Codex owns Git decisions while the host only observes and records the resulting branch and pull request. Codex bypasses inner approval prompts because the disposable container and chat-scoped repository mount are the outer security boundary. URL allowlisting prevents `file:`, SSH command injection, and obvious clone-based SSRF paths.
 
 ## Hosting
 

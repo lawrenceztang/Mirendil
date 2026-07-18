@@ -46,8 +46,7 @@ export const db = {
   async addArtifact(runId: string, name: string, kind: string, artifactPath: string, sizeBytes: number): Promise<void> { await pool.query(`INSERT INTO artifacts(id,run_id,name,kind,path,size_bytes) VALUES(gen_random_uuid(),$1,$2,$3,$4,$5)`,[runId,name,kind,artifactPath,sizeBytes]); },
   async setPullRequest(runId: string, prUrl: string): Promise<void> { await pool.query(`UPDATE runs SET pr_url=$2 WHERE id=$1`,[runId,prUrl]); },
   async setSessionPullRequest(sessionId:string,prUrl:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=$2,pr_branch=$3,updated_at=now() WHERE id=$1`,[sessionId,prUrl,prBranch]);},
-  async setSessionBranch(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
-  async replacePullRequest(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=null,pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
+  async setSessionBranch(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=CASE WHEN pr_branch=$2 THEN pr_url ELSE null END,pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
   async requestCancel(runId: string): Promise<void> { await pool.query(`UPDATE runs SET cancel_requested=true WHERE id=$1 AND status IN ('queued','running')`, [runId]); },
   async leaseRun(workerId: string): Promise<Run | null> {
     const result = await pool.query(leaseRunSql,[workerId]);

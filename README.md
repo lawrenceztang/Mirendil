@@ -53,7 +53,7 @@ npm run build
 - Compose starts three worker replicas by default, allowing three concurrent runs. Set `WORKER_REPLICAS` to tune this for available CPU, memory, and model budget.
 - Git is required by the worker. Only HTTPS URLs on `ALLOWED_GIT_HOSTS` are accepted.
 - OpenAI API keys are encrypted per user and configured from Home, not server environment variables. Each real run invokes `codex exec`; `CODEX_MODEL` can override the CLI's current default model.
-- GitHub OAuth establishes the Relay user identity and repository connection. Delegated tokens are encrypted per user, remain in the trusted worker, and are not passed to agent containers or persisted in Git configuration.
+- GitHub OAuth establishes the Relay user identity and repository connection. Delegated tokens are encrypted per user and passed only to that user's isolated chat container so Codex can choose branches, push, and manage pull requests; executed repository code could access the run credential, an explicit prototype tradeoff.
 - Register a GitHub OAuth App with homepage `http://localhost:3000` and callback `http://localhost:3000/api/connections/github/callback`, then set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. The integration requests the `repo` scope so it can clone, push, and create PRs for repositories the authorizing account can access.
 - Authentication uses a random 30-day session token stored as a SHA-256 hash in Supabase and an HttpOnly, SameSite=Lax browser cookie. Every session/run/artifact route checks ownership; pre-authentication sessions remain unowned and hidden.
 - Workspace files persist in `.relay/workspaces`; application state persists in Supabase.
@@ -71,6 +71,7 @@ npm run build
 
 - Repository cloning supports public repositories and private GitHub repositories authorized through OAuth. For production, a GitHub App is preferable because it offers repository-level installation selection and short-lived tokens.
 - A user's model key is supplied only to their isolated runtime as an environment variable. Production should replace this with a run-scoped inference proxy so containers never receive provider credentials.
+- Relay does not choose or switch Git branches after cloning. Codex owns branch, commit, push, and pull-request decisions; Relay only records the observed branch and PR URL.
 - Codex can inspect, edit, and run repository commands autonomously inside the non-root run container. `--dangerously-bypass-approvals-and-sandbox` is safe only because the surrounding container is the security boundary; production still needs seccomp/AppArmor and strict egress controls.
 - The Docker socket grants the worker powerful host access. Production should use Kubernetes Jobs, ECS tasks, or a dedicated sandbox service instead.
 

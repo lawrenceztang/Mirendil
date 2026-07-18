@@ -97,14 +97,13 @@ if(!authenticated){await new Promise((resolve,reject)=>{
 delete codexEnv.OPENAI_API_KEY;
 const threadMarker=path.join(codexHome,'.relay-thread-started');
 let continuing=false;try{await fs.access(threadMarker);continuing=true;}catch{}
-const instructions=`Determine whether the user is asking a question or requesting a repository change. If it is a question, inspect the repository as needed and answer it without changing files. If a change is requested, make the smallest complete change, run relevant tests or checks, then commit and push the current Relay chat branch. After every new commit, use the GitHub CLI to update the open pull request for this branch, or create one if no open pull request exists. You may use Git freely and should publish each coherent completed change by default. Finish with a concise text response addressed directly to the user; this response is separate from Git commits, pushes, and pull-request delivery.`;
+const instructions=`Relay provides the execution environment but does not choose or switch Git branches. You own Git and pull-request decisions. First inspect the current branch, status, and relevant remote/PR state without discarding uncommitted work. If the user asks only a question, inspect as needed and answer without changing files. For a repository change, choose an appropriate branch yourself; do not push directly to the repository's default branch unless the user explicitly asks. Preserve and reconcile existing work, make the smallest complete change, run relevant checks, commit, and push. Use the GitHub CLI to update an open pull request for your branch or create one when appropriate. Publish each coherent completed change by default. Finish with a concise text response addressed directly to the user, separate from Git and PR delivery.`;
 const prompt=continuing?`Continue the existing Relay chat.\n\nNew user request: ${task}\n\n${instructions}`:`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\n${instructions}`;
 const args=continuing?['exec','resume','--last','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--output-last-message',finalMessage]:['exec','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--color','never','--output-last-message',finalMessage,'--cd',root];
 if(process.env.CODEX_MODEL)args.push('--model',process.env.CODEX_MODEL);
 if(process.env.CODEX_THINKING_LEVEL)args.push('--config',`model_reasoning_effort="${process.env.CODEX_THINKING_LEVEL}"`);
 args.push(prompt);
 
-let headBefore='';try{headBefore=(await execFileAsync('git',['rev-parse','HEAD'],{cwd:root,env:codexEnv})).stdout.trim();}catch{}
 const exitCode=await new Promise((resolve,reject)=>{
   const child=spawn('codex',args,{cwd:root,stdio:['ignore','inherit','inherit'],env:codexEnv});
   child.on('error',reject);child.on('close',resolve);
@@ -112,7 +111,7 @@ const exitCode=await new Promise((resolve,reject)=>{
 if(exitCode!==0)throw new Error(`Codex exited with status ${exitCode}`);
 if(!continuing)await fs.writeFile(threadMarker,'started',{mode:0o600});
 if(process.env.GITHUB_TOKEN){
-  try{const {stdout:headAfter}=await execFileAsync('git',['rev-parse','HEAD'],{cwd:root,env:codexEnv});if(headAfter.trim()!==headBefore){const [{stdout:url},{stdout:branch}]=await Promise.all([execFileAsync('gh',['pr','view','--json','url','--jq','.url'],{cwd:root,env:codexEnv}),execFileAsync('git',['branch','--show-current'],{cwd:root,env:codexEnv})]);console.log(`RELAY_PR: ${JSON.stringify({url:url.trim(),branch:branch.trim()})}`);}}catch{}
+  try{const {stdout:branchOutput}=await execFileAsync('git',['branch','--show-current'],{cwd:root,env:codexEnv});const branch=branchOutput.trim();if(branch){console.log(`RELAY_BRANCH: ${JSON.stringify({branch})}`);try{const {stdout:url}=await execFileAsync('gh',['pr','view','--json','url','--jq','.url'],{cwd:root,env:codexEnv});if(url.trim())console.log(`RELAY_PR: ${JSON.stringify({url:url.trim(),branch})}`);}catch{}}}catch{}
 }
 let summary='Codex completed the repository task.';
 try{summary=(await fs.readFile(finalMessage,'utf8')).trim()||summary;}catch{}

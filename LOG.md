@@ -57,3 +57,5 @@ Brief, chronological, append-only. Records only important user-driven product an
 27. **User chose continued Codex conversation history.** Each Relay chat now owns a persistent Codex volume and resumes the same saved Codex thread for follow-up messages.
 
 28. **User required a per-session queue.** Workers still share global capacity, but session-row locking and a database uniqueness guard now serialize prompts within each chat.
+
+29. **User gave Codex branch ownership.** Relay now only provides the scoped execution environment and records observed Git/PR state; Codex chooses and switches branches without worker interference.
