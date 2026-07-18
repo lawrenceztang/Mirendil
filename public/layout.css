@@ -23,6 +23,10 @@ main {
   overflow: hidden;
 }
 
+main:not(:has(.chat:not(.hidden))) {
+  overflow-y: auto;
+}
+
 #sidebar {
   display: flex;
   flex-direction: column;
@@ -160,6 +164,35 @@ header {
   .home-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .empty {
+    grid-template-columns: 1fr;
+    width: min(560px, calc(100% - 32px));
+    padding-top: 46px;
+  }
+
+  .empty h2 {
+    font-size: clamp(42px, 13vw, 62px);
+  }
+
+  .workflow-preview {
+    transform: none;
+  }
+
+  .value-strip {
+    grid-template-columns: 1fr;
+    width: calc(100% - 32px);
+  }
+
+  .value-strip article + article {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .value-strip article {
+    border-bottom: 1px solid var(--line);
+    padding: 18px 0;
   }
 
   .compose-foot > span {

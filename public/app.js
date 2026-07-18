@@ -174,6 +174,11 @@ function closeSources() {
   activeSources.clear();
 }
 
+function showHome(visible) {
+  $('#empty').classList.toggle('hidden', !visible);
+  $('.value-strip').classList.toggle('hidden', !visible);
+}
+
 function closeSidebar() {
   document.body.classList.remove('sidebar-open');
   $('#sidebarToggle').setAttribute('aria-expanded', 'false');
@@ -328,7 +333,7 @@ async function openSession(id) {
   selected = id;
   closeSources();
   markActiveSession();
-  $('#empty').classList.add('hidden');
+  showHome(false);
   $('#chat').classList.remove('hidden');
   $('#title').textContent = 'Loading chat…';
   $('#status').innerHTML = '';
@@ -370,7 +375,7 @@ function goHome(updateHistory = true) {
   selected = null;
   if (updateHistory) history.pushState(null, '', location.pathname);
   $('#chat').classList.add('hidden');
-  $('#empty').classList.remove('hidden');
+  showHome(true);
   $('#title').textContent = 'Relay';
   $('#status').innerHTML = '';
   markActiveSession();
@@ -417,14 +422,14 @@ function showSignedOut() {
   openAiConfigured = null;
   history.replaceState(null, '', location.pathname);
   $('#chat').classList.add('hidden');
-  $('#empty').classList.remove('hidden');
+  showHome(true);
   $('#newSession').classList.add('hidden');
   $('#account').classList.add('hidden');
   $('#emptyModelAction').classList.add('hidden');
   $('#sessions').innerHTML = '<div class="muted">Sign in to view your chats.</div>';
   $('#title').textContent = 'Relay';
   $('#status').innerHTML = '';
-  setEmptyState('Sign in to Relay');
+  setEmptyState('Turn an issue into a pull request');
   const action = $('#emptyAction');
   action.disabled = false;
   action.textContent = 'Continue with GitHub';
@@ -438,7 +443,7 @@ function showSignedIn(user) {
   $('#account').classList.remove('hidden');
   $('#emptyModelAction').classList.remove('hidden');
   $('#githubConnection').textContent = `@${user.login} · Sign out`;
-  setEmptyState('Start a chat');
+  setEmptyState('What should we build next?');
   $('#title').textContent = 'Relay';
 
   const action = $('#emptyAction');

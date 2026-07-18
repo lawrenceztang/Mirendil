@@ -49,12 +49,38 @@
       </header>
 
       <section id="empty" class="empty">
-        <h2>Loading…</h2>
-        <p class="intro hidden"></p>
-        <div class="home-actions">
-          <button class="primary" id="emptyAction" type="button" disabled>Loading Relay…</button>
-          <button class="secondary hidden" id="emptyModelAction" type="button">Add OpenAI key</button>
+        <div class="hero-copy">
+          <span class="eyebrow"><i aria-hidden="true"></i> Your repository, moving forward</span>
+          <h2>Loading…</h2>
+          <p class="intro hidden"></p>
+          <p class="hero-description">Give Relay a goal. It reads the codebase, works in an isolated environment, runs the checks, and opens a pull request for you.</p>
+          <div class="home-actions">
+            <button class="primary" id="emptyAction" type="button" disabled>Loading Relay…</button>
+            <button class="secondary hidden" id="emptyModelAction" type="button">Add OpenAI key</button>
+          </div>
+          <p class="hero-note">Built for focused, reviewable changes—not busywork.</p>
         </div>
+
+        <div class="workflow-preview" aria-label="Example Relay workflow">
+          <div class="preview-topbar">
+            <span class="preview-logo">R</span>
+            <span>relay / acme-store</span>
+            <span class="preview-status"><i aria-hidden="true"></i> Working</span>
+          </div>
+          <div class="preview-prompt">Add product search to the catalog page and cover it with tests.</div>
+          <ol class="preview-steps">
+            <li class="done"><i aria-hidden="true">✓</i><span><strong>Mapped the codebase</strong><small>Found the catalog route and API</small></span></li>
+            <li class="done"><i aria-hidden="true">✓</i><span><strong>Implemented search</strong><small>Updated 4 files</small></span></li>
+            <li class="active"><i aria-hidden="true"></i><span><strong>Running checks</strong><small>Unit tests and typecheck</small></span></li>
+          </ol>
+          <div class="preview-footer"><span>Branch ready</span><b>Open pull request ↗</b></div>
+        </div>
+      </section>
+
+      <section class="value-strip" aria-label="How Relay works">
+        <article><span>01</span><div><strong>Connect a repository</strong><p>Pick a GitHub project and keep every task scoped to its code.</p></div></article>
+        <article><span>02</span><div><strong>Describe the outcome</strong><p>Ask for a feature, a fix, an investigation, or better tests.</p></div></article>
+        <article><span>03</span><div><strong>Review the result</strong><p>Follow live progress, inspect the checks, and merge the pull request.</p></div></article>
       </section>
 
       <section id="chat" class="chat hidden">
