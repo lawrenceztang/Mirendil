@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { config } from './config.js';
 export function validateRepoUrl(raw) {
@@ -10,6 +11,7 @@ export function validateRepoUrl(raw) {
         throw new Error('Do not put credentials in repository URLs');
     return url;
 }
+export function remoteBranchRefspec(branch) { return `+refs/heads/${branch}:refs/remotes/origin/${branch}`; }
 export function command(command, args, cwd, timeout = 120_000) {
     return new Promise((resolve, reject) => {
         const child = spawn(command, args, { cwd, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -23,14 +25,31 @@ export function command(command, args, cwd, timeout = 120_000) {
         child.on('close', code => { clearTimeout(timer); code === 0 ? resolve(out.trim()) : reject(new Error(err.trim() || `${command} exited ${code}`)); });
     });
 }
-export async function ensureWorkspace(session) {
+export async function ensureWorkspace(session, githubToken) {
     const dir = path.join(config.workspaceRoot, session.id);
     await fs.mkdir(config.workspaceRoot, { recursive: true });
+    let exists = true;
     try {
         await fs.access(path.join(dir, '.git'));
+    }
+    catch {
+        exists = false;
+    }
+    if (exists) {
+        if (session.prBranch) {
+            const safe = ['-c', `safe.directory=${dir}`];
+            try {
+                await command('git', [...safe, 'switch', session.prBranch], dir);
+            }
+            catch {
+                const url = validateRepoUrl(session.repoUrl);
+                const auth = githubToken ? ['-c', `http.${url.origin}/.extraHeader=Authorization: Basic ${Buffer.from(`x-access-token:${githubToken}`).toString('base64')}`] : [];
+                await command('git', [...safe, ...auth, 'fetch', 'origin', remoteBranchRefspec(session.prBranch)], dir);
+                await command('git', [...safe, 'switch', '-c', session.prBranch, `refs/remotes/origin/${session.prBranch}`], dir);
+            }
+        }
         return dir;
     }
-    catch { }
     await fs.mkdir(dir, { recursive: true });
     if (!session.repoUrl) {
         await command('git', ['init'], dir);
@@ -38,23 +57,80 @@ export async function ensureWorkspace(session) {
         return dir;
     }
     const url = validateRepoUrl(session.repoUrl);
-    const args = ['clone', '--depth=1'];
+    const args = [];
+    if (githubToken && url.hostname === 'github.com')
+        args.push('-c', `http.${url.origin}/.extraHeader=Authorization: Basic ${Buffer.from(`x-access-token:${githubToken}`).toString('base64')}`);
+    args.push('clone', '--depth=1');
     if (session.branch)
         args.push('--branch', session.branch);
     args.push(url.toString(), '.');
     await command('git', args, dir, 300_000);
     return dir;
 }
-export async function diff(workspace) {
-    const tracked = await command('git', ['diff', '--no-ext-diff', '--'], workspace);
-    const untracked = await command('git', ['ls-files', '--others', '--exclude-standard'], workspace);
-    let result = tracked;
-    for (const file of untracked.split('\n').filter(Boolean).slice(0, 30)) {
-        try {
-            result += `\n--- /dev/null\n+++ b/${file}\n` + (await fs.readFile(path.join(workspace, file), 'utf8')).split('\n').map(x => `+${x}`).join('\n');
+export async function changedFiles(workspace) { const output = await command('git', ['-c', `safe.directory=${workspace}`, 'status', '--porcelain', '--untracked-files=all'], workspace); return output.split('\n').filter(Boolean).map(line => line.slice(3)).filter(file => file !== '.relay-diff.patch'); }
+export async function headRevision(workspace) { return command('git', ['-c', `safe.directory=${workspace}`, 'rev-parse', 'HEAD'], workspace); }
+export async function pullRequestState(session, githubToken, request = fetch) {
+    if (!session.prUrl || !session.repoUrl)
+        return 'closed';
+    const repoUrl = validateRepoUrl(session.repoUrl);
+    const prUrl = new URL(session.prUrl);
+    const repoParts = repoUrl.pathname.replace(/^\//, '').replace(/\.git$/, '').split('/');
+    const parts = prUrl.pathname.replace(/^\//, '').split('/');
+    const number = parts[3];
+    if (prUrl.hostname !== 'github.com' || parts.length !== 4 || parts[0] !== repoParts[0] || parts[1] !== repoParts[1] || parts[2] !== 'pull' || !number || !/^\d+$/.test(number))
+        return 'closed';
+    const response = await request(`https://api.github.com/repos/${parts[0]}/${parts[1]}/pulls/${number}`, { headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'relay-cloud-agent' } });
+    if (!response.ok)
+        throw new Error(`GitHub PR lookup failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
+    const pull = await response.json();
+    return pull.merged_at ? 'merged' : pull.state === 'open' ? 'open' : 'closed';
+}
+export async function prepareAgentBranch(session, workspace, githubToken) {
+    const git = (args) => command('git', ['-c', `safe.directory=${workspace}`, ...args], workspace);
+    const pullState = githubToken && session.prUrl ? await pullRequestState(session, githubToken) : 'open';
+    if (pullState !== 'open') {
+        const url = validateRepoUrl(session.repoUrl);
+        const auth = ['-c', `http.${url.origin}/.extraHeader=Authorization: Basic ${Buffer.from(`x-access-token:${githubToken}`).toString('base64')}`];
+        const branch = `relay/chat-${session.id.slice(0, 8)}-${crypto.randomUUID().slice(0, 8)}`;
+        if (pullState === 'merged') {
+            let base = session.branch;
+            if (!base) {
+                try {
+                    base = (await git(['symbolic-ref', 'refs/remotes/origin/HEAD', '--short'])).replace(/^origin\//, '');
+                }
+                catch {
+                    base = 'main';
+                }
+            }
+            await git([...auth, 'fetch', 'origin', base]);
+            await git(['switch', '-c', branch, `origin/${base}`]);
         }
-        catch { }
+        else
+            await git(['switch', '-c', branch]);
+        return { branch, replacedPullRequest: true };
     }
-    return result.slice(0, 500_000);
+    const branch = session.prBranch || `relay/chat-${session.id.slice(0, 8)}`;
+    try {
+        await git(['switch', branch]);
+    }
+    catch {
+        await git(['switch', '-c', branch]);
+    }
+    return { branch, replacedPullRequest: false };
+}
+export async function makeAgentWritable(workspace, includeDependencies = true) {
+    async function visit(current) {
+        const stat = await fs.lstat(current);
+        if (stat.isSymbolicLink())
+            return;
+        if (stat.isDirectory())
+            for (const entry of await fs.readdir(current)) {
+                if (!includeDependencies && entry === 'node_modules')
+                    continue;
+                await visit(path.join(current, entry));
+            }
+        await fs.chmod(current, stat.mode | (stat.isDirectory() ? 0o777 : 0o666));
+    }
+    await visit(workspace);
 }
 //# sourceMappingURL=repository.js.map

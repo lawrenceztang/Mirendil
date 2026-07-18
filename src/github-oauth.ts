@@ -17,6 +17,12 @@ export function verifyOAuthState(state:string):OAuthState{
   if(!parsed.nonce||parsed.expiresAt<Date.now())throw new Error('OAuth state expired');return parsed;
 }
 
+export function oauthStateMatches(state:string,cookieState:string|null):boolean{
+  if(!cookieState)return false;
+  const expected=Buffer.from(state);const supplied=Buffer.from(cookieState);
+  return expected.length===supplied.length&&crypto.timingSafeEqual(expected,supplied);
+}
+
 export async function exchangeGitHubCode(code:string):Promise<{token:string;id:number;login:string;avatarUrl:string|null}>{
   if(!config.githubClientId||!config.githubClientSecret)throw new Error('GitHub OAuth is not configured');
   const tokenResponse=await fetch('https://github.com/login/oauth/access_token',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json','User-Agent':'relay-cloud-agent'},body:JSON.stringify({client_id:config.githubClientId,client_secret:config.githubClientSecret,code})});
