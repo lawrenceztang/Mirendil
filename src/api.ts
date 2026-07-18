@@ -7,7 +7,7 @@ import { config } from './config.js';
 import { db, pool } from './db.js';
 import { validateRepoUrl } from './repository.js';
 import { vault } from './vault.js';
-import { createOAuthState, exchangeGitHubCode, verifyOAuthState } from './github-oauth.js';
+import { createOAuthState, exchangeGitHubCode, oauthStateMatches, verifyOAuthState } from './github-oauth.js';
 import { cookieValue, createLogin, revokeLogin, upsertGitHubUser, userForToken, type AuthUser } from './auth.js';
 
 declare module 'fastify' { interface FastifyRequest { authUser?:AuthUser; authToken?:string|null } }
@@ -18,6 +18,8 @@ const sessionInput=z.object({title:z.string().trim().min(1).max(100),repoUrl:z.s
 const promptInput=z.object({prompt:z.string().trim().min(1).max(10_000),thinkingLevel:z.enum(['low','medium','high','xhigh']).nullable().optional().default(null)});
 const openAiKeyInput=z.object({key:z.string().trim().min(20).max(500)});
 const authCookie='relay_session';
+const oauthStateCookie='relay_oauth_state';
+const secureCookie=config.publicUrl.startsWith('https://')?'; Secure':'';
 
 app.addHook('preHandler',async(req,reply)=>{
   if(!req.url.startsWith('/api/')||req.url.startsWith('/api/auth/')||req.url.startsWith('/api/connections/github/callback'))return;
@@ -25,8 +27,8 @@ app.addHook('preHandler',async(req,reply)=>{
 });
 
 app.get('/health',async()=>({ok:true}));
-app.get('/api/auth/github/start',async(_req,reply)=>{if(!config.githubClientId)return reply.code(503).send({error:'GitHub OAuth is not configured'});const redirectUri=`${config.publicUrl}/api/connections/github/callback`;const query=new URLSearchParams({client_id:config.githubClientId,redirect_uri:redirectUri,scope:'repo',state:createOAuthState(),prompt:'select_account'});return reply.redirect(`https://github.com/login/oauth/authorize?${query}`);});
-app.get('/api/connections/github/callback',async(req,reply)=>{const query=z.object({code:z.string().optional(),state:z.string(),error:z.string().optional()}).parse(req.query);verifyOAuthState(query.state);if(query.error||!query.code)return reply.redirect(config.publicUrl);const identity=await exchangeGitHubCode(query.code);const user=await upsertGitHubUser(identity);await vault.putUser(user.id,'github_token',identity.token);const token=await createLogin(user.id);const secure=config.publicUrl.startsWith('https://')?'; Secure':'';reply.header('Set-Cookie',`${authCookie}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`);return reply.redirect(config.publicUrl);});
+app.get('/api/auth/github/start',async(_req,reply)=>{if(!config.githubClientId)return reply.code(503).send({error:'GitHub OAuth is not configured'});const redirectUri=`${config.publicUrl}/api/connections/github/callback`;const state=createOAuthState();const query=new URLSearchParams({client_id:config.githubClientId,redirect_uri:redirectUri,scope:'repo',state,prompt:'select_account'});reply.header('Set-Cookie',`${oauthStateCookie}=${encodeURIComponent(state)}; Path=/api/connections/github/callback; HttpOnly; SameSite=Lax; Max-Age=600${secureCookie}`);return reply.redirect(`https://github.com/login/oauth/authorize?${query}`);});
+app.get('/api/connections/github/callback',async(req,reply)=>{const query=z.object({code:z.string().optional(),state:z.string(),error:z.string().optional()}).parse(req.query);const cookieState=cookieValue(req.headers.cookie,oauthStateCookie);if(!oauthStateMatches(query.state,cookieState))return reply.code(400).send({error:'Invalid OAuth state'});verifyOAuthState(query.state);const clearStateCookie=`${oauthStateCookie}=; Path=/api/connections/github/callback; HttpOnly; SameSite=Lax; Max-Age=0${secureCookie}`;if(query.error||!query.code){reply.header('Set-Cookie',clearStateCookie);return reply.redirect(config.publicUrl);}const identity=await exchangeGitHubCode(query.code);const user=await upsertGitHubUser(identity);await vault.putUser(user.id,'github_token',identity.token);const token=await createLogin(user.id);const loginCookie=`${authCookie}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secureCookie}`;reply.header('Set-Cookie',[clearStateCookie,loginCookie]);return reply.redirect(config.publicUrl);});
 app.get('/api/me',async req=>req.authUser);
 app.post('/api/auth/logout',async(req,reply)=>{await revokeLogin(req.authToken||null);reply.header('Set-Cookie',`${authCookie}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);return reply.code(204).send();});
 app.get('/api/sessions',async req=>db.sessions(req.authUser!.id));
