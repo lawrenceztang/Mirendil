@@ -47,12 +47,13 @@ export async function execute(run: Run, session: Session, signal: AbortSignal): 
   const prepared=await prepareAgentBranch(session,workspace,githubToken);const branch=prepared.branch;
   if(prepared.replacedMergedPullRequest){await db.replaceMergedPullRequest(session.id,branch);session.prUrl=null;session.prBranch=branch;await db.addEvent(run.id,'setup','Starting a new pull request',`The previous pull request was merged; using ${branch}`);}
   else if(!session.prBranch){await db.setSessionBranch(session.id,branch);session.prBranch=branch;}
+  else if(session.prUrl)await db.setPullRequest(run.id,session.prUrl);
   const chat=await chatContainer(session,workspace);const container=chat.container;
   await makeAgentWritable(workspace,!chat.reused||prepared.replacedMergedPullRequest);
   if(!chat.reused)await db.addEvent(run.id,'setup','Starting new chat container',`${config.agentImage} · ${session.repoUrl||'Blank workspace'}`);
   const agent=await container.exec({
     Cmd:['node','/runner/run.js'], AttachStdout:true, AttachStderr:true,
-    Env:[`RUN_ID=${run.id}`,`TASK=${run.prompt}`,`AGENT_COUNT=${session.agentCount}`,`OPENAI_API_KEY=${openAiKey||''}`,`GITHUB_TOKEN=${githubToken||''}`,`CODEX_MODEL=${process.env.CODEX_MODEL||''}`,`DIRECT_WORKSPACE=1`],
+    Env:[`RUN_ID=${run.id}`,`TASK=${run.prompt}`,`AGENT_COUNT=${session.agentCount}`,`OPENAI_API_KEY=${openAiKey||''}`,`GITHUB_TOKEN=${githubToken||''}`,`CODEX_MODEL=${process.env.CODEX_MODEL||''}`,`CODEX_THINKING_LEVEL=${run.thinkingLevel||''}`,`DIRECT_WORKSPACE=1`],
     WorkingDir:'/workspace', User:'10001:10001'
   });
   let output='';

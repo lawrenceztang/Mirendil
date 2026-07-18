@@ -5,7 +5,7 @@ export interface Session {
 }
 export interface Run {
   id: string; sessionId: string; prompt: string; status: RunStatus; summary: string | null;
-  error: string | null; prUrl: string | null; cancelRequested: boolean; createdAt: string; startedAt: string | null; finishedAt: string | null;
+  error: string | null; prUrl: string | null; thinkingLevel: string | null; cancelRequested: boolean; createdAt: string; startedAt: string | null; finishedAt: string | null;
 }
 export interface RunEvent { id: string; runId: string; kind: string; title: string; detail: string | null; createdAt: string; }
 export interface Artifact { id: string; runId: string; name: string; kind: string; path: string; sizeBytes: number; createdAt: string; }

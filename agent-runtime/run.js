@@ -101,6 +101,7 @@ const instructions=`Determine whether the user is asking a question or requestin
 const prompt=continuing?`Continue the existing Relay chat.\n\nNew user request: ${task}\n\n${instructions}`:`Work in this repository as an autonomous agent.\n\nUser request: ${task}\n\n${instructions}`;
 const args=continuing?['exec','resume','--last','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--output-last-message',finalMessage]:['exec','--dangerously-bypass-approvals-and-sandbox','--ignore-user-config','--skip-git-repo-check','--color','never','--output-last-message',finalMessage,'--cd',root];
 if(process.env.CODEX_MODEL)args.push('--model',process.env.CODEX_MODEL);
+if(process.env.CODEX_THINKING_LEVEL)args.push('--config',`model_reasoning_effort="${process.env.CODEX_THINKING_LEVEL}"`);
 args.push(prompt);
 
 let headBefore='';try{headBefore=(await execFileAsync('git',['rev-parse','HEAD'],{cwd:root,env:codexEnv})).stdout.trim();}catch{}
