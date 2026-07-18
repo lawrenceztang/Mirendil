@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+!.env.example
+.relay
+node_modules
+dist
+coverage
+*.zip
+npm-debug.log*

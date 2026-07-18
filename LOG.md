@@ -59,3 +59,5 @@ Brief, chronological, append-only. Records only important user-driven product an
 28. **User required a per-session queue.** Workers still share global capacity, but session-row locking and a database uniqueness guard now serialize prompts within each chat.
 
 29. **User gave Codex branch ownership.** Relay now only provides the scoped execution environment and records observed Git/PR state; Codex chooses and switches branches without worker interference.
+
+30. **User chose ephemeral run containers.** Relay now creates at most one agent container per active worker and removes it after each run while preserving the session workspace and Codex-history volume.

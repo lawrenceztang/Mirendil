@@ -30,7 +30,7 @@ Users supply their own provider key, encrypted under the server master key and s
 
 ## Parallel agents
 
-Each queue worker owns one run at a time and launches one Codex agent container. Worker replicas provide safe parallelism across separate runs; a single repository run has one writer, avoiding conflicting edits inside the same workspace.
+Each queue worker owns one run at a time and launches one disposable Codex agent container. The container is removed after completion while the session workspace and Codex-history volume persist. Worker replicas therefore bound active agent containers; per-session queue serialization keeps a single writer in each workspace.
 
 ## Code choices
 

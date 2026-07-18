@@ -244,3 +244,69 @@ Stop Relay without deleting Supabase data:
 ```bash
 docker-compose down
 ```
+
+## 9. Recover from a full EC2 disk
+
+Repeated Docker builds retain image layers and build cache. Check both disk space and inode usage:
+
+```bash
+df -h /
+df -i /
+docker system df
+```
+
+Remove stopped containers, unused images, networks, and build cache:
+
+```bash
+docker system prune -af
+sudo journalctl --vacuum-size=200M
+```
+
+Do **not** run `docker volume prune` or add `--volumes`. Relay stores persistent Codex conversation history in `relay-codex-*` Docker volumes.
+
+Relay's `.dockerignore` excludes `.git`, `.relay`, `node_modules`, build output, environment files, and archives from the Docker build context. If a build reports paths such as `/.git/objects` or sends hundreds of megabytes, confirm the latest `.dockerignore` is present:
+
+```bash
+git pull
+cat .dockerignore
+```
+
+After cleanup, rebuild:
+
+```bash
+docker build -f Dockerfile.agent -t relay-agent:latest .
+docker compose up -d --build --force-recreate web worker
+```
+
+### Increase the root EBS volume
+
+For a permanent fix, take an EBS snapshot, then open **EC2 → Volumes**, select the instance's root volume, choose **Modify volume**, and increase its size. AWS allows the attached volume to be expanded while the instance is running on supported instance types.
+
+Once the volume is `optimizing` or `completed`, inspect the device and filesystem:
+
+```bash
+lsblk
+df -hT /
+```
+
+For a typical Nitro Ubuntu instance with an Ext4 root filesystem:
+
+```bash
+sudo growpart /dev/nvme0n1 1
+sudo resize2fs /dev/nvme0n1p1
+```
+
+For Xen device naming, use `/dev/xvda 1` and `/dev/xvda1`. If `df -hT /` reports XFS, grow the filesystem by mount point instead:
+
+```bash
+sudo xfs_growfs -d /
+```
+
+Verify the expanded capacity:
+
+```bash
+lsblk
+df -hT /
+```
+
+See the [AWS EBS filesystem expansion guide](https://docs.aws.amazon.com/ebs/latest/userguide/recognize-expanded-volume-linux.html) for device-specific instructions.
