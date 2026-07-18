@@ -7,6 +7,19 @@ export const pool = new Pool({ connectionString: config.databaseUrl, max: 10, co
 const sessionColumns = `id, user_id AS "userId", title, repo_url AS "repoUrl", branch, agent_count AS "agentCount", status, pr_url AS "prUrl", pr_branch AS "prBranch", created_at AS "createdAt", updated_at AS "updatedAt"`;
 const runColumns = `id, session_id AS "sessionId", prompt, status, summary, error, pr_url AS "prUrl", thinking_level AS "thinkingLevel", cancel_requested AS "cancelRequested", created_at AS "createdAt", started_at AS "startedAt", finished_at AS "finishedAt"`;
 const leasedRunColumns = `r.id, r.session_id AS "sessionId", r.prompt, r.status, r.summary, r.error, r.pr_url AS "prUrl", r.thinking_level AS "thinkingLevel", r.cancel_requested AS "cancelRequested", r.created_at AS "createdAt", r.started_at AS "startedAt", r.finished_at AS "finishedAt"`;
+export const leaseRunSql=`WITH next AS (
+  SELECT candidate.id FROM runs candidate
+  JOIN sessions chat ON chat.id=candidate.session_id
+  WHERE (candidate.status='queued' AND NOT EXISTS (
+    SELECT 1 FROM runs earlier WHERE earlier.session_id=candidate.session_id AND (
+      (earlier.status='queued' AND (earlier.created_at,earlier.id)<(candidate.created_at,candidate.id)) OR earlier.status='running'
+    )
+  )) OR (candidate.status='running' AND candidate.lease_expires_at<now())
+  ORDER BY candidate.created_at,candidate.id
+  FOR UPDATE OF candidate,chat SKIP LOCKED LIMIT 1
+)
+UPDATE runs r SET status='running',worker_id=$1,lease_expires_at=now()+interval '30 seconds',started_at=COALESCE(r.started_at,now())
+FROM next WHERE r.id=next.id RETURNING ${leasedRunColumns}`;
 
 export const db = {
   async sessions(userId:string): Promise<Session[]> { return (await pool.query(`SELECT ${sessionColumns} FROM sessions WHERE user_id=$1 ORDER BY updated_at DESC`,[userId])).rows; },
@@ -37,8 +50,7 @@ export const db = {
   async replacePullRequest(sessionId:string,prBranch:string):Promise<void>{await pool.query(`UPDATE sessions SET pr_url=null,pr_branch=$2,updated_at=now() WHERE id=$1`,[sessionId,prBranch]);},
   async requestCancel(runId: string): Promise<void> { await pool.query(`UPDATE runs SET cancel_requested=true WHERE id=$1 AND status IN ('queued','running')`, [runId]); },
   async leaseRun(workerId: string): Promise<Run | null> {
-    const result = await pool.query(`WITH next AS (SELECT candidate.id FROM runs candidate JOIN sessions chat ON chat.id=candidate.session_id WHERE (candidate.status='queued' AND NOT EXISTS (SELECT 1 FROM runs earlier WHERE earlier.session_id=candidate.session_id AND ((earlier.status='queued' AND (earlier.created_at,earlier.id)<(candidate.created_at,candidate.id)) OR earlier.status='running'))) OR (candidate.status='running' AND candidate.lease_expires_at<now()) ORDER BY candidate.created_at,candidate.id FOR UPDATE OF candidate,chat SKIP LOCKED LIMIT 1)
-      UPDATE runs r SET status='running',worker_id=$1,lease_expires_at=now()+interval '30 seconds',started_at=COALESCE(r.started_at,now()) FROM next WHERE r.id=next.id RETURNING ${leasedRunColumns}`, [workerId]);
+    const result = await pool.query(leaseRunSql,[workerId]);
     if (result.rows[0]) await pool.query(`UPDATE sessions SET status='running',updated_at=now() WHERE id=$1`, [result.rows[0].sessionId]);
     return result.rows[0] || null;
   },
