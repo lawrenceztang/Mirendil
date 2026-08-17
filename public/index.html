@@ -93,8 +93,11 @@
           Repository
           <em>HTTPS</em>
         </label>
-        <input id="repoUrl" name="repoUrl" type="url" list="repoOptions" placeholder="Choose a repository or enter its URL" required autocomplete="url" aria-describedby="createHint createError">
-        <datalist id="repoOptions"></datalist>
+        <div class="repository-picker">
+          <span class="repository-search" aria-hidden="true"></span>
+          <input id="repoUrl" name="repoUrl" type="url" placeholder="Search repositories or enter a URL" required autocomplete="off" aria-autocomplete="list" aria-controls="repoOptions" aria-expanded="false" aria-describedby="createHint createError">
+          <div id="repoOptions" class="repository-options hidden" role="listbox" aria-label="Repositories"></div>
+        </div>
         <p class="hint" id="createHint">Choose a connected repository or enter an allowed public HTTPS URL.</p>
         <p class="form-error hidden" id="createError" role="alert"></p>
         <button class="primary wide" type="submit">Create chat</button>
