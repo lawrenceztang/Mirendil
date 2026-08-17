@@ -479,13 +479,31 @@ async function removeOpenAiKey() {
   }
 }
 
-function renderRepositoryOptions(items) {
+function renderRepositoryOptions(items, query = '') {
   const options = $('#repoOptions');
   options.replaceChildren();
-  for (const repository of items) {
-    const option = document.createElement('option');
-    option.value = repository.url;
-    option.label = `${repository.private ? 'Private · ' : ''}${repository.name}`;
+  const normalizedQuery = query.trim().toLowerCase();
+  const visible = items.filter(repository => !normalizedQuery || repository.name.toLowerCase().includes(normalizedQuery));
+
+  if (!visible.length) {
+    const empty = document.createElement('div');
+    empty.className = 'repository-empty';
+    empty.textContent = normalizedQuery ? 'No matching repositories' : 'No repositories found';
+    options.append(empty);
+  }
+
+  for (const repository of visible) {
+    const [owner, ...nameParts] = repository.name.split('/');
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'repository-option';
+    option.setAttribute('role', 'option');
+    option.dataset.url = repository.url;
+    option.innerHTML = `
+      <span class="repository-icon" aria-hidden="true">${repository.private ? '●' : '○'}</span>
+      <span class="repository-name"><small>${escapeHtml(owner)}</small><strong>${escapeHtml(nameParts.join('/') || owner)}</strong></span>
+      <span class="repository-meta">${repository.private ? 'Private' : 'Public'}<small>${escapeHtml(repository.branch)}</small></span>
+    `;
     options.append(option);
   }
   $('#createHint').textContent = items.length
@@ -493,14 +511,36 @@ function renderRepositoryOptions(items) {
     : 'No repositories were returned. Enter an allowed public HTTPS URL.';
 }
 
+function setRepositoryOptionsOpen(open) {
+  $('#repoOptions').classList.toggle('hidden', !open);
+  $('#repoUrl').setAttribute('aria-expanded', String(open));
+}
+
+function refreshRepositoryOptions() {
+  if (!repositories) return;
+  const input = $('#repoUrl');
+  const exactUrl = repositories.some(repository => repository.url === input.value.trim());
+  renderRepositoryOptions(repositories, exactUrl ? '' : input.value);
+  setRepositoryOptionsOpen(document.activeElement === input);
+}
+
+function moveRepositoryFocus(direction) {
+  const options = [...document.querySelectorAll('.repository-option')];
+  if (!options.length) return;
+  const current = options.indexOf(document.activeElement);
+  options[(current + direction + options.length) % options.length].focus();
+}
+
 async function loadRepositories() {
   if (repositories) {
     renderRepositoryOptions(repositories);
+    setRepositoryOptionsOpen(document.activeElement === $('#repoUrl'));
     return;
   }
   try {
     repositories = await api('/api/connections/github/repos');
     renderRepositoryOptions(repositories);
+    setRepositoryOptionsOpen(document.activeElement === $('#repoUrl'));
   } catch (error) {
     $('#repoOptions').replaceChildren();
     $('#createHint').textContent = `${error.message}. Enter an allowed public HTTPS URL instead.`;
@@ -512,6 +552,7 @@ function openCreateDialog() {
   form.reset();
   setFormError($('#createError'));
   $('#repoOptions').replaceChildren();
+  setRepositoryOptionsOpen(false);
   $('#createHint').textContent = 'Loading your recently updated GitHub repositories…';
   $('#create').showModal();
   void loadRepositories();
@@ -566,7 +607,41 @@ $('#sessions').addEventListener('click', event => {
   }
 });
 
-$('#repoUrl').oninput = () => setFormError($('#createError'));
+$('#repoUrl').oninput = () => {
+  setFormError($('#createError'));
+  refreshRepositoryOptions();
+};
+$('#repoUrl').onfocus = refreshRepositoryOptions;
+$('#repoUrl').onkeydown = event => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    setRepositoryOptionsOpen(true);
+    moveRepositoryFocus(event.key === 'ArrowDown' ? 1 : -1);
+  } else if (event.key === 'Escape') {
+    setRepositoryOptionsOpen(false);
+  }
+};
+$('#repoOptions').addEventListener('click', event => {
+  const option = event.target.closest('.repository-option');
+  if (!option) return;
+  const repository = repositories?.find(item => item.url === option.dataset.url);
+  if (!repository) return;
+  $('#repoUrl').value = repository.url;
+  setRepositoryOptionsOpen(false);
+  setFormError($('#createError'));
+});
+$('#repoOptions').addEventListener('keydown', event => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveRepositoryFocus(event.key === 'ArrowDown' ? 1 : -1);
+  } else if (event.key === 'Escape') {
+    $('#repoUrl').focus();
+    setRepositoryOptionsOpen(false);
+  }
+});
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('.repository-picker')) setRepositoryOptionsOpen(false);
+});
 
 $('#createForm').onsubmit = async event => {
   event.preventDefault();
