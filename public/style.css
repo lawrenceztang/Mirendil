@@ -637,6 +637,137 @@ select {
   background: #fafbf9;
 }
 
+.repository-picker {
+  position: relative;
+}
+
+.repository-picker input {
+  padding-left: 38px;
+  background: white;
+}
+
+.repository-picker input[aria-expanded="true"] {
+  border-color: #9fb4a7;
+  box-shadow: 0 0 0 3px rgb(28 107 75 / 10%);
+}
+
+.repository-search {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.repository-search::after {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  width: 5px;
+  height: 1.5px;
+  transform: rotate(45deg);
+  background: var(--muted);
+  content: '';
+}
+
+.repository-options {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  max-height: 286px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #cfd8d1;
+  border-radius: 11px;
+  background: white;
+  box-shadow: 0 16px 40px rgb(23 32 28 / 16%);
+  overscroll-behavior: contain;
+}
+
+.repository-option {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.repository-option:hover,
+.repository-option.active {
+  background: var(--green-pale);
+}
+
+.repository-icon {
+  position: relative;
+  width: 17px;
+  height: 20px;
+  border: 1.5px solid var(--green);
+  border-radius: 3px;
+}
+
+.repository-icon::after {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--green);
+  content: '';
+}
+
+.repository-name,
+.repository-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.repository-name small,
+.repository-meta small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 450;
+  letter-spacing: 0;
+}
+
+.repository-name strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repository-meta {
+  align-items: flex-end;
+  max-width: 110px;
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.repository-meta small {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repository-empty {
+  padding: 22px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .hint {
   padding: 10px 12px;
   border-radius: 8px;
